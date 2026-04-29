@@ -256,3 +256,30 @@ header h1 {
 .swiper-pagination-bullet-active {
     background: #ff6b6b !important;
 }
+/* 確保卡牌是相對定位容器 */
+.recipe-card {
+    position: relative; /* 核心修改：讓內部的絕對定位元件以卡牌為基準 */
+    background: white;
+    border-radius: 25px;
+    overflow: hidden;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 查看更多提示文字樣式 */
+.view-more-hint {
+    position: absolute;
+    bottom: 15px;      /* 距離底部間距 */
+    right: 20px;       /* 距離右側間距 */
+    color: #ff6b6b;    /* 使用你的品牌粉紅色 */
+    font-size: 1.2rem; /* 字體大小，符合易讀性需求 */
+    font-weight: bold;
+    background: rgba(255, 255, 255, 0.9); /* 加上微透明白底，避免背景文字干擾 */
+    padding: 4px 10px;
+    border-radius: 12px;
+    pointer-events: none; /* 重要：讓點擊穿透到下方的卡牌，確保 onclick 觸發 */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}

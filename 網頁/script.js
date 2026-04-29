@@ -40,7 +40,8 @@ function renderRecipes(recipes) {
                         <p class="ingredients-list">
                             <strong>材料：</strong><br>
                             ${formattedIngredients}
-                        </p>
+                            </p>
+                        <div class="view-more-hint">查看更多 ></div>
                     </div>
                 </div>
             </div>

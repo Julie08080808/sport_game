@@ -21,7 +21,7 @@ app.mount("/image", StaticFiles(directory="image"), name="image")
 conn_params = {
     "dbname": "postgres",
     "user": "postgres",
-    "password": "123456", # ⚠️ 請在此處填入您的密碼
+    "password": "123456", # ⚠️ 請在此處填入您的密碼//
     "host": "localhost",
     "port": "5432"
 }
