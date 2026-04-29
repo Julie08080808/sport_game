@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>銀髮族食譜 App</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>美味食譜</h1>
+        <div class="filter-bar">
+            <button class="filter-btn active" onclick="filterRecipes('all')">全部</button>
+            <button class="filter-btn" onclick="filterRecipes(1)">早餐</button>
+            <button class="filter-btn" onclick="filterRecipes(2)">午晚餐</button>
+            <button class="filter-btn" onclick="filterRecipes(3)">點心</button>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="swiper">
+            <div class="swiper-wrapper" id="recipe-wrapper"></div>
+            <div class="swiper-pagination"></div>
+        </div>
+    </main>
+
+    <div id="detail-modal" class="modal">
+        <div class="modal-content full-screen">
+            <span class="close-btn top-right" onclick="closeModal()">&times;</span>
+            
+            <div id="modal-content-area"></div>
+
+            <div class="modal-footer">
+                <button class="bottom-close-btn" onclick="closeModal()">關閉食譜內容</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
