@@ -9,17 +9,23 @@
 啟動方式:
     uvicorn main:app --reload
 """
+import os
+from dotenv import load_dotenv # 引入載入工具
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
-from controllers import recipe_controller, user_controller, upload_controller
+# 1. 在最一開始就載入環境變數 (確保 GOOGLE_APPLICATION_CREDENTIALS 被讀取)
+load_dotenv()
+
+# 2. 引入你建立的 controllers
+from controllers import recipe_controller, user_controller, upload_controller, tts
 
 # 建立 FastAPI 應用
 app = FastAPI(title="銀髮族食譜 App", version="1.0.0")
 
-# CORS 設定
+# CORS 設定 (開發階段允許所有來源)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -28,6 +34,8 @@ app.add_middleware(
 )
 
 # 掛載靜態資源
+# /image 存取實體 image 資料夾裡的圖片
+# /static 存取實體 views 資料夾裡的 CSS/JS
 app.mount("/image", StaticFiles(directory="image"), name="image")
 app.mount("/static", StaticFiles(directory="views"), name="static")
 
@@ -36,18 +44,20 @@ app.include_router(recipe_controller.router)
 app.include_router(user_controller.router)
 app.include_router(upload_controller.router)
 
+# 3. 掛載語音功能路由
+# 這裡加上 prefix="/api" 後，前端 fetch 的網址就會是 /api/tts
+app.include_router(tts.router, prefix="/api", tags=["語音功能"])
 
 # 首頁 (View)
 @app.get("/")
 def serve_index():
     return FileResponse("views/index.html")
 
-
 @app.get("/login")
 def serve_login():
     return FileResponse("views/login.html")
 
-
 if __name__ == "__main__":
     import uvicorn
+    # 這裡的 host 設為 0.0.0.0 方便區域網路內測試
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
