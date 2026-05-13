@@ -205,6 +205,24 @@ header h1 {
     font-weight: bold;
 }
 
+/* 材料區段標題 - 帶播放按鍵 */
+.ingredients-section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 15px;
+}
+
+.ingredients-section-header .modal-section-title {
+    margin: 0;
+    border-left: 10px solid #ff6b6b;
+    padding-left: 15px;
+    font-size: 1.8rem;
+    color: #ff6b6b;
+    font-weight: bold;
+}
+
+/* 材料網格布局 */
 .modal-ingredients-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -216,23 +234,26 @@ header h1 {
     margin-top: 10px;
 }
 
+/* 材料行 - 左右排列 */
 .ingredient-row {
     display: flex;
     justify-content: space-between;
-    align-items: baseline;
-    font-size: 1.8rem;
-    color: #222;
-    border-bottom: 1px dashed #ffdada;
-    padding-bottom: 5px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
 }
 
 .ingredient-name {
     font-weight: 500;
+    font-size: 1.6rem;
+    color: #222;
 }
 
 .ingredient-amount {
-    color: #666;
-    font-size: 1.6rem;
+    color: #999;
+    font-size: 1.4rem;
+    text-align: right;
+    white-space: nowrap;
 }
 
 @media (max-width: 480px) {
@@ -242,18 +263,34 @@ header h1 {
     }
 }
 
+/* 作法步驟樣式 */
 .modal-step {
     margin-bottom: 30px;
     border-bottom: 1px solid #eee;
     padding-bottom: 20px;
 }
 
+.step-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    width: 100%;
+}
+
 .step-num {
-    display: block;
     font-size: 1.4rem;
     color: #ff6b6b;
     font-weight: 800;
-    margin-bottom: 8px;
+    white-space: nowrap;
+}
+
+.step-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    margin-left: 10px;
 }
 
 .modal-step p {
@@ -261,6 +298,7 @@ header h1 {
     line-height: 1.6;
     color: #222;
     margin: 0;
+    margin-top: 10px;
 }
 
 .modal-footer {
@@ -373,6 +411,7 @@ header h1 {
     text-decoration: none;
     font-size: 1rem;
 }
+
 /* 文字發亮動畫：使用柔和的淡黃色 */
 .highlight {
     background-color: #fff9c4;
@@ -390,15 +429,26 @@ header h1 {
     font-size: 1.1rem;
     width: 35px;
     height: 35px;
-    margin-left: 10px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+
+.tts-btn:active {
+    transform: scale(0.95);
+    background: #e0e0e0;
 }
 
 /* 打勾按鈕：預設隱藏，啟用時才出現 */
 .checkmark {
     color: #4CAF50;
     font-weight: bold;
-    margin-left: auto;
     display: none; /* 預設不顯示 */
+    font-size: 1.2rem;
+    line-height: 1;
 }
 
 .checkmark.active {

@@ -1,9 +1,9 @@
-// API 改為相對路徑(因為前後端同源,部署時更彈性)[cite: 1]
+// API 改為相對路徑(因為前後端同源,部署時更彈性)
 const API_URL = "/api";
 const IMAGE_BASE_URL = "/image";
 let allRecipes = [];
 let swiperInstance = null;
-let currentAudio = null; // 用於儲存當前播放的音訊物件[cite: 1]
+let currentAudio = null; // 用於儲存當前播放的音訊物件
 
 // 統一格式化食材字串(去除多餘的 .00)
 function formatIngredientString(ingStr) {
@@ -31,9 +31,9 @@ function logout() {
     renderUserBar();
 }
 
-// 核心語音播放函數[cite: 1]
+// 核心語音播放函數
 async function speak(text, elementId, isSSML = false, checkmarkId = null) {
-    // 如果有正在播放的音訊，先停止[cite: 1]
+    // 如果有正在播放的音訊，先停止
     if (currentAudio) {
         currentAudio.pause();
         currentAudio = null;
@@ -41,7 +41,7 @@ async function speak(text, elementId, isSSML = false, checkmarkId = null) {
 
     const targetElement = document.getElementById(elementId);
     
-    // 開始播放前增加發亮效果[cite: 1]
+    // 開始播放前增加發亮效果
     if (targetElement) targetElement.classList.add('highlight');
 
     try {
@@ -58,10 +58,10 @@ async function speak(text, elementId, isSSML = false, checkmarkId = null) {
         currentAudio = new Audio(url);
 
         currentAudio.onended = () => {
-            // 播放結束：移除發亮[cite: 1]
+            // 播放結束：移除發亮
             if (targetElement) targetElement.classList.remove('highlight');
             
-            // 如果有指定的打勾 ID，則顯示打勾[cite: 1]
+            // 如果有指定的打勾 ID，則顯示打勾
             if (checkmarkId) {
                 const check = document.getElementById(checkmarkId);
                 if (check) check.classList.add('active');
@@ -139,7 +139,7 @@ async function showDetails(id, name) {
         const res = await fetch(`${API_URL}/recipes/${id}/steps`);
         const steps = await res.json();
 
-        // 渲染材料 HTML 並加上打勾 ID[cite: 1]
+        // 渲染材料 HTML - 左名稱右數量排版
         const ingredientsHTML = recipe.ingredients ? recipe.ingredients.map((ing, idx) => {
             const cleanIng = formatIngredientString(ing.trim());
             const parts = cleanIng.split(' ');
@@ -147,13 +147,17 @@ async function showDetails(id, name) {
             const ingAmount = parts.slice(1).join(' ');
 
             return `
-                <div class="ingredient-row" id="ing-row-${idx}">
+                <div class="ingredient-row">
                     <span class="ingredient-name">${ingName}</span>
                     <span class="ingredient-amount">${ingAmount}</span>
-                    <span class="checkmark" id="ing-check-${idx}">✅</span>
                 </div>
             `;
         }).join('') : '暫無材料資訊';
+
+        // 準備所有食材文字用於一次播放 - 包含「所需材料」標題
+        const allIngredientsText = recipe.ingredients 
+            ? '所需材料，' + recipe.ingredients.map(ing => formatIngredientString(ing.trim())).join('，')
+            : '';
 
         const contentArea = document.getElementById('modal-content-area');
         contentArea.innerHTML = `
@@ -161,9 +165,9 @@ async function showDetails(id, name) {
             <div class="modal-padding">
                 <h2 class="modal-recipe-title">${recipe.name}</h2>
                 
-                <div class="modal-section-title">
-                    所需材料
-                    <button class="tts-btn" id="play-all-ing-btn">🔊 播放全部</button>
+                <div class="ingredients-section-header">
+                    <span class="modal-section-title">所需材料</span>
+                    <button class="tts-btn" onclick="speak('${allIngredientsText}', 'ingredients-section')">🔊</button>
                 </div>
                 <div class="modal-ingredients-grid" id="all-ingredients-container">
                     ${ingredientsHTML}
@@ -173,34 +177,19 @@ async function showDetails(id, name) {
                 <div class="modal-steps-list">
                     ${steps.map((s, idx) => `
                         <div class="modal-step" id="step-block-${idx}">
-                            <span class="step-num">第 ${s.step_number} 步 
-                                <button class="tts-btn" onclick="speak('${s.description}', 'step-block-${idx}', false, 'step-check-${idx}')">🔊</button>
-                            </span>
+                            <div class="step-header">
+                                <span class="step-num">第 ${s.step_number} 步</span>
+                                <div class="step-controls">
+                                    <button class="tts-btn" onclick="speak('${s.description}', 'step-block-${idx}', false, 'step-check-${idx}')">🔊</button>
+                                    <span class="checkmark" id="step-check-${idx}">✅</span>
+                                </div>
+                            </div>
                             <p>${s.description}</p>
-                            <span class="checkmark" id="step-check-${idx}">✅ 已完成</span>
                         </div>
                     `).join('')}
                 </div>
             </div>
         `;
-
-        // 綁定播放所有材料的事件[cite: 1]
-        document.getElementById('play-all-ing-btn').onclick = () => {
-            // 使用 SSML 格式增加停頓[cite: 1]
-            const allText = `<speak>所需材料有：${recipe.ingredients.map(i => `${i}，<break time="500ms"/>`).join('')}</speak>`;
-            
-            speak(allText, 'all-ingredients-container', true);
-            
-            // 特別處理播放全部後的打勾連動[cite: 1]
-            const originalOnEnded = currentAudio.onended;
-            currentAudio.onended = () => {
-                if (originalOnEnded) originalOnEnded();
-                recipe.ingredients.forEach((_, i) => {
-                    const check = document.getElementById(`ing-check-${i}`);
-                    if (check) check.classList.add('active');
-                });
-            };
-        };
 
         const modal = document.getElementById('detail-modal');
         modal.style.display = "block";
