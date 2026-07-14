@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登入 / 註冊 - 銀髮族食譜</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="auth-container">
+        <h2>歡迎使用</h2>
+
+        <div class="auth-tabs">
+            <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">登入</button>
+            <button class="auth-tab" id="tab-register" onclick="switchTab('register')">註冊</button>
+        </div>
+
+        <div class="auth-form">
+            <input type="text" id="username" placeholder="帳號" autocomplete="username">
+            <input type="password" id="password" placeholder="密碼" autocomplete="current-password">
+            <button class="auth-submit" id="submit-btn" onclick="submitAuth()">登入</button>
+            <div class="auth-msg" id="auth-msg"></div>
+        </div>
+
+        <a class="back-link" href="/">← 返回食譜首頁</a>
+    </div>
+
+    <script src="/static/login.js"></script>
+</body>
+</html>
