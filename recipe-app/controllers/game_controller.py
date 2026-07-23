@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Form
 from pydantic import BaseModel
-from models import game_model
+from models import game_model, user_model
 
 router = APIRouter(prefix="/api/game", tags=["Game Mechanics"])
 
@@ -33,16 +33,9 @@ def complete_task(req: ExpUpdateReq):
     }
 
 
-class SyncExpReq(BaseModel):
-    user_id: int
-    building_type: int
-    exp_amount: int
-
-
 @router.post("/sync_exp")
-def sync_exp(req: SyncExpReq):
-    res = user_model.update_game_exp(
-        req.user_id, req.building_type, req.exp_amount)
+def sync_exp(user_id: int = Form(...), building_type: int = Form(...), exp_amount: int = Form(...)):
+    res = user_model.update_game_exp(user_id, building_type, exp_amount)
     if not res:
         raise HTTPException(status_code=400, detail="同步失敗")
-    return {"success": True, "data": res}
+    return res
