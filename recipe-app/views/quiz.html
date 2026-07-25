@@ -4,12 +4,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>銀髮族健康問答</title>
+    <!-- 手繪風字體 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="/static/quiz.css">
+    <!-- 新增:手繪風美編樣式,放在最後才能覆蓋前面 -->
+    <link rel="stylesheet" href="/static/quiz-design.css">
 </head>
 <body>
+    <!-- 雲朵裝飾 -->
+    <img src="/image/ui/cloud.png" class="deco-cloud cloud-1" alt="">
+    <img src="/image/ui/cloud.png" class="deco-cloud cloud-2" alt="">
+
+    <!-- 底部樹木裝飾 -->
+    <img src="/image/ui/tree.png" class="deco-tree tree-left" alt="">
+    <img src="/image/ui/tree.png" class="deco-tree tree-right" alt="">
+
     <header>
         <h1>健康知識問答</h1>
+        <!-- 木牌標題 -->
+        <div class="title-board">
+            <img src="/image/ui/title-board.png" alt="健康知識問答">
+            <span class="board-text">健康知識問答</span>
+        </div>
+        <br>
         <a href="/" class="back-home-btn">← 返回食譜</a>
     </header>
 
@@ -17,13 +36,25 @@
 
         <!-- 開始畫面 -->
         <div id="start-screen" class="quiz-screen">
-            <h2>歡迎來到健康知識小教室</h2>
-            <p class="quiz-subtitle">每天 5 題,輕鬆學習銀髮族健康小知識!</p>
+            <h2>歡迎來到<br>健康知識小教室</h2>
+            <p class="quiz-subtitle">每天 5 題<br>輕鬆學習銀髮族健康小知識!</p>
             <p class="quiz-info" id="total-info">準備中...</p>
-            <button class="quiz-big-btn" onclick="startQuiz()">開始作答</button>
+
+            <!-- 有繩子的木牌大按鈕 -->
+            <button class="wood-btn" onclick="startQuiz()">
+                <img src="/image/ui/btn-rope.png" alt="">
+                <span class="btn-text">開始作答</span>
+            </button>
+
+            <!-- 動物裝飾 -->
+            <div class="start-animals">
+                <!-- <img src="/image/ui/animal-rabbit.png" alt=""> -->
+                <img src="/image/ui/animal-dog.png" alt="">
+                <!-- <img src="/image/ui/animal-cat.png" alt=""> -->
+            </div>
         </div>
 
-        <!-- 作答畫面 -->
+        <!-- 作答畫面(暫時維持原樣,確認開始畫面後再改) -->
         <div id="quiz-screen" class="quiz-screen" style="display: none;">
             <div class="quiz-progress">
                 <span id="progress-text">第 1 題 / 共 5 題</span>
@@ -31,21 +62,10 @@
                     <div class="progress-fill" id="progress-fill"></div>
                 </div>
             </div>
-
             <div class="quiz-card">
                 <div class="quiz-question-no" id="question-no">題號 1</div>
-
-                <!-- 題目圖片:僅圖片題會顯示,文字題自動隱藏 -->
-                <!-- onerror:圖片載入失敗時自動隱藏,避免出現破圖 -->
-                <img id="question-image"
-                     class="quiz-question-image"
-                     src=""
-                     alt=""
-                     style="display: none;"
-                     onerror="this.style.display='none';">
-
+                <img id="question-image" class="quiz-question-image" src="" alt="" style="display: none;" onerror="this.style.display='none';">
                 <h2 class="quiz-question" id="question-text">題目載入中...</h2>
-
                 <div class="quiz-options">
                     <button class="quiz-option-btn" id="btn-a" onclick="submitAnswer('A')">
                         <span class="option-label">A</span>
@@ -57,8 +77,6 @@
                     </button>
                 </div>
             </div>
-
-            <!-- 答案回饋區(預設隱藏) -->
             <div id="feedback-area" class="feedback-area" style="display: none;">
                 <div id="feedback-result" class="feedback-result"></div>
                 <div class="feedback-explanation">
@@ -69,7 +87,7 @@
             </div>
         </div>
 
-        <!-- 結算畫面 -->
+        <!-- 結算畫面(暫時維持原樣) -->
         <div id="result-screen" class="quiz-screen" style="display: none;">
             <h2>作答完成 🎉</h2>
             <div class="final-score">
@@ -77,8 +95,11 @@
                 <div class="score-text" id="score-text">答對題數</div>
             </div>
             <p class="quiz-subtitle" id="score-comment"></p>
-            <button class="quiz-big-btn" onclick="restartQuiz()">再玩一次</button>
-            <a href="/" class="quiz-secondary-btn">返回食譜首頁</a>
+            <button class="wood-btn-plain" onclick="restartQuiz()">
+                <img src="/image/ui/btn-plain.png" alt="">
+                <span class="btn-text">再玩一次</span>
+            </button>
+            <!-- <a href="/" class="quiz-secondary-btn">返回食譜首頁</a> -->
         </div>
 
     </main>
