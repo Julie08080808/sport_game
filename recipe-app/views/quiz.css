@@ -2,14 +2,50 @@
    銀髮族健康問答 - 專用樣式
    設計原則:大字體、高對比、寬鬆間距
    ========================================== */
-/*
-顏色原本為#ff6b6b，我測試用blueviolet
-*/
+
+/* ==========================================
+   色彩變數
+   日後要改整體配色,只要改這一區就好,
+   下面所有樣式都是引用這些變數。
+   ========================================== */
+:root {
+    /* 主色系 */
+    --color-primary: #ff6b6b;          /* 主色(標題、按鈕、強調) */
+    --color-primary-dark: #ff5252;     /* 主色加深(hover) */
+    --color-primary-light: #ffe5e5;    /* 主色淡底(進度條底、選項圓標) */
+    --color-primary-pale: #fff8f8;     /* 主色極淡(hover 背景) */
+
+    /* 中性色 */
+    --color-bg: #f8f9fa;               /* 頁面背景 */
+    --color-surface: #ffffff;          /* 卡片背景 */
+    --color-text: #222222;             /* 主要文字 */
+    --color-text-sub: #555555;         /* 次要文字 */
+    --color-text-muted: #888888;       /* 提示文字 */
+    --color-border: #eeeeee;           /* 邊框 */
+
+    /* 狀態色 */
+    --color-correct: #2e7d32;          /* 答對(綠) */
+    --color-correct-bg: #e6f9ee;
+    --color-wrong: #d32f2f;            /* 答錯(紅) */
+    --color-wrong-bg: #ffeaea;
+
+    /* 解釋說明區 */
+    --color-explain-bg: #fff8e1;
+    --color-explain-border: #ffa726;
+    --color-explain-title: #e65100;
+
+    /* 圓角與陰影 */
+    --radius-lg: 25px;
+    --radius-md: 18px;
+    --radius-sm: 12px;
+    --shadow-card: 0 10px 25px rgba(0, 0, 0, 0.08);
+    --shadow-btn: 0 4px 15px rgba(255, 107, 107, 0.3);
+}
 
 .back-home-btn {
     display: inline-block;
-    background: white;
-    color: blueviolet;
+    background: var(--color-surface);
+    color: var(--color-primary);
     border: none;
     padding: 8px 18px;
     border-radius: 20px;
@@ -31,44 +67,44 @@
 
 .quiz-screen h2 {
     font-size: 2.4rem;
-    color: blueviolet;
+    color: var(--color-primary);
     margin-bottom: 15px;
 }
 
 .quiz-subtitle {
     font-size: 1.4rem;
-    color: #555;
+    color: var(--color-text-sub);
     margin: 10px 0 25px 0;
     line-height: 1.5;
 }
 
 .quiz-info {
     font-size: 1.2rem;
-    color: #888;
+    color: var(--color-text-muted);
     margin-bottom: 30px;
 }
 
 /* ===== 大按鈕(開始作答 / 下一題 / 重玩) ===== */
 .quiz-big-btn {
     display: inline-block;
-    background: blueviolet;
-    color: white;
+    background: var(--color-primary);
+    color: var(--color-surface);
     border: none;
     padding: 18px 50px;
     font-size: 1.6rem;
     font-weight: bold;
     border-radius: 50px;
     cursor: pointer;
-    box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+    box-shadow: var(--shadow-btn);
     margin-top: 20px;
 }
 
-.quiz-big-btn:hover { background: #ff5252; }
+.quiz-big-btn:hover { background: var(--color-primary-dark); }
 
 .quiz-secondary-btn {
     display: block;
     margin-top: 15px;
-    color: #888;
+    color: var(--color-text-muted);
     text-decoration: none;
     font-size: 1.1rem;
 }
@@ -81,7 +117,7 @@
 .quiz-progress span {
     display: block;
     font-size: 1.2rem;
-    color: #555;
+    color: var(--color-text-sub);
     margin-bottom: 8px;
     font-weight: bold;
 }
@@ -89,36 +125,56 @@
 .progress-bar {
     width: 100%;
     height: 12px;
-    background: #ffe5e5;
+    background: var(--color-primary-light);
     border-radius: 6px;
     overflow: hidden;
 }
 
 .progress-fill {
     height: 100%;
-    background: #ff6b6b;
+    background: var(--color-primary);
     transition: width 0.3s ease;
 }
 
 /* ===== 題目卡 ===== */
 .quiz-card {
-    background: white;
-    border-radius: 25px;
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
     padding: 35px 25px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+    box-shadow: var(--shadow-card);
     text-align: left;
 }
 
 .quiz-question-no {
-    color: #ff6b6b;
+    color: var(--color-primary);
     font-size: 1.2rem;
     font-weight: bold;
     margin-bottom: 10px;
 }
 
+/* ===== 題目圖片(圖片題專用) =====
+   固定 4:3 比例並裁切,避免不同尺寸的圖造成卡片高度跳動。
+   文字題時此元素由 JS 設為 display:none,完全不佔空間。 */
+.quiz-question-image {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    border-radius: var(--radius-md);
+    margin-bottom: 20px;
+    background: var(--color-border);   /* 圖片載入中的底色 */
+    display: block;
+}
+
+/* 窄螢幕改成 1:1,手機上不會佔掉太多畫面高度 */
+@media (max-width: 480px) {
+    .quiz-question-image {
+        aspect-ratio: 1 / 1;
+    }
+}
+
 .quiz-question {
     font-size: 1.8rem;
-    color: #222;
+    color: var(--color-text);
     line-height: 1.5;
     margin: 0 0 30px 0;
     font-weight: 600;
@@ -136,19 +192,19 @@
     align-items: center;
     gap: 20px;
     padding: 20px 25px;
-    background: white;
-    border: 3px solid #eee;
-    border-radius: 18px;
+    background: var(--color-surface);
+    border: 3px solid var(--color-border);
+    border-radius: var(--radius-md);
     font-size: 1.6rem;
     cursor: pointer;
     text-align: left;
     transition: all 0.2s;
-    color: #222;
+    color: var(--color-text);
 }
 
 .quiz-option-btn:hover:not(:disabled) {
-    border-color: #ff6b6b;
-    background: #fff8f8;
+    border-color: var(--color-primary);
+    background: var(--color-primary-pale);
 }
 
 .quiz-option-btn:disabled {
@@ -161,8 +217,8 @@
     width: 50px;
     height: 50px;
     border-radius: 50%;
-    background: #ffe5e5;
-    color: #ff6b6b;
+    background: var(--color-primary-light);
+    color: var(--color-primary);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -180,32 +236,32 @@
 }
 
 .quiz-option-btn.correct {
-    background: #e6f9ee;
-    border-color: #2e7d32;
+    background: var(--color-correct-bg);
+    border-color: var(--color-correct);
 }
 
 .quiz-option-btn.correct .option-label {
-    background: #2e7d32;
-    color: white;
+    background: var(--color-correct);
+    color: var(--color-surface);
 }
 
 .quiz-option-btn.wrong {
-    background: #ffeaea;
-    border-color: #d32f2f;
+    background: var(--color-wrong-bg);
+    border-color: var(--color-wrong);
 }
 
 .quiz-option-btn.wrong .option-label {
-    background: #d32f2f;
-    color: white;
+    background: var(--color-wrong);
+    color: var(--color-surface);
 }
 
 /* ===== 回饋區 ===== */
 .feedback-area {
     margin-top: 25px;
-    background: white;
-    border-radius: 25px;
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
     padding: 30px 25px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+    box-shadow: var(--shadow-card);
 }
 
 .feedback-result {
@@ -215,13 +271,13 @@
     margin-bottom: 20px;
 }
 
-.feedback-correct { color: #2e7d32; }
-.feedback-wrong { color: #d32f2f; }
+.feedback-correct { color: var(--color-correct); }
+.feedback-wrong { color: var(--color-wrong); }
 
 .feedback-explanation {
-    background: #fff8e1;
-    border-left: 6px solid #ffa726;
-    border-radius: 12px;
+    background: var(--color-explain-bg);
+    border-left: 6px solid var(--color-explain-border);
+    border-radius: var(--radius-sm);
     padding: 20px;
     margin-bottom: 25px;
 }
@@ -229,7 +285,7 @@
 .feedback-title {
     font-size: 1.3rem;
     font-weight: bold;
-    color: #e65100;
+    color: var(--color-explain-title);
     margin-bottom: 10px;
 }
 
@@ -242,17 +298,17 @@
 
 /* ===== 結算畫面 ===== */
 .final-score {
-    background: white;
-    border-radius: 25px;
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
     padding: 40px 25px;
     margin: 30px 0;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+    box-shadow: var(--shadow-card);
 }
 
 .score-number {
     font-size: 4rem;
     font-weight: bold;
-    color: #ff6b6b;
+    color: var(--color-primary);
     margin-bottom: 10px;
 }
 
@@ -264,9 +320,9 @@
 /* ===== 食譜首頁的「健康問答」按鈕 ===== */
 .go-quiz-btn {
     display: inline-block;
-    background: white;
-    color: #ff6b6b;
-    border: 1.5px solid white;
+    background: var(--color-surface);
+    color: var(--color-primary);
+    border: 1.5px solid var(--color-surface);
     padding: 8px 18px;
     border-radius: 20px;
     font-size: 1.2rem;

@@ -33,7 +33,17 @@
             </div>
 
             <div class="quiz-card">
-                <div class="quiz-question-no" id="question-no">題號 33</div>
+                <div class="quiz-question-no" id="question-no">題號 1</div>
+
+                <!-- 題目圖片:僅圖片題會顯示,文字題自動隱藏 -->
+                <!-- onerror:圖片載入失敗時自動隱藏,避免出現破圖 -->
+                <img id="question-image"
+                     class="quiz-question-image"
+                     src=""
+                     alt=""
+                     style="display: none;"
+                     onerror="this.style.display='none';">
+
                 <h2 class="quiz-question" id="question-text">題目載入中...</h2>
 
                 <div class="quiz-options">
@@ -66,7 +76,7 @@
                 <div class="score-number"><span id="score-correct">0</span> / <span id="score-total">0</span></div>
                 <div class="score-text" id="score-text">答對題數</div>
             </div>
-            <p class="quiz-subtitle" id="score-comment">繼續學習,身體更健康!</p>
+            <p class="quiz-subtitle" id="score-comment"></p>
             <button class="quiz-big-btn" onclick="restartQuiz()">再玩一次</button>
             <a href="/" class="quiz-secondary-btn">返回食譜首頁</a>
         </div>

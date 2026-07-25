@@ -5,12 +5,22 @@
 // 1. 答案驗證透過 POST /api/quiz/answer 由後端做(避免 F12 偷看答案)
 // 2. 一題一題進行,每題答完顯示對錯 + 解釋
 // 3. 全部答完顯示總成績
-// 4. QUIZ_COUNT 一個變數控制要出幾題,未來改數字就好
+// 4. QUIZ_COUNT 一個變數控制要出幾題
+// 5. 支援圖片題:題目有 image_url 時自動顯示圖片,文字題自動隱藏
+// 6. 題型透過「網址參數」控制,介面不提供切換按鈕
+//    一般使用者:  /quiz              → 混合隨機
+//    demo 展示用:  /quiz?type=image   → 只出圖片題
+//                 /quiz?type=text    → 只出文字題
 
 const API_QUIZ = "/api/quiz";
+const IMAGE_BASE_URL = "/image";
 
 // 預設出題數,未來改這裡就好
 const QUIZ_COUNT = 5;
+
+// 從網址讀取題型參數(沒有帶就是 all)
+// 例如 http://localhost:8000/quiz?type=image
+const QUIZ_TYPE = new URLSearchParams(window.location.search).get('type') || 'all';
 
 // 遊戲狀態
 let questions = [];        // 本回合的題目
@@ -22,10 +32,16 @@ let correctCount = 0;      // 答對幾題
 // ==========================================
 async function init() {
     try {
-        const res = await fetch(`${API_QUIZ}/total`);
+        const res = await fetch(`${API_QUIZ}/total?type=${QUIZ_TYPE}`);
         const data = await res.json();
+
+        // 只有在使用 demo 參數時才顯示題型標記,一般使用者看不到
+        const typeLabel = QUIZ_TYPE === 'image' ? '(圖片題)'
+                        : QUIZ_TYPE === 'text'  ? '(文字題)'
+                        : '';
+
         document.getElementById('total-info').textContent =
-            `題庫共有 ${data.total} 題,本次將隨機出 ${Math.min(QUIZ_COUNT, data.total)} 題`;
+            `題庫共有 ${data.total} 題${typeLabel},本次將隨機出 ${Math.min(QUIZ_COUNT, data.total)} 題`;
     } catch (err) {
         document.getElementById('total-info').textContent = '無法連接題庫,請確認伺服器是否啟動';
     }
@@ -36,7 +52,9 @@ async function init() {
 // ==========================================
 async function startQuiz() {
     try {
-        const res = await fetch(`${API_QUIZ}/questions?count=${QUIZ_COUNT}&mode=random`);
+        const res = await fetch(
+            `${API_QUIZ}/questions?count=${QUIZ_COUNT}&mode=random&type=${QUIZ_TYPE}`
+        );
         if (!res.ok) {
             const err = await res.json();
             alert('載入題目失敗:' + (err.detail || '未知錯誤'));
@@ -74,6 +92,19 @@ function renderQuestion() {
     document.getElementById('question-text').textContent = q.question;
     document.getElementById('option-a-text').textContent = q.option_a;
     document.getElementById('option-b-text').textContent = q.option_b;
+
+    // --- 圖片題處理 ---
+    // 有 image_url 就顯示圖片,沒有就隱藏。兩種題型共用同一套渲染流程。
+    const imgEl = document.getElementById('question-image');
+    if (q.image_url) {
+        imgEl.src = `${IMAGE_BASE_URL}/${q.image_url}`;
+        imgEl.alt = q.question;   // 無障礙:螢幕閱讀器可讀出題目
+        imgEl.style.display = 'block';
+    } else {
+        imgEl.style.display = 'none';
+        imgEl.removeAttribute('src');
+        imgEl.alt = '';
+    }
 
     // 重置按鈕狀態
     document.getElementById('btn-a').disabled = false;
