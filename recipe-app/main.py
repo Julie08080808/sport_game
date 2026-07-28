@@ -9,7 +9,7 @@
 啟動方式:
     uvicorn main:app --reload
 """
-from controllers import recipe_controller, user_controller, upload_controller, tts, game_controller
+from controllers import recipe_controller, user_controller, upload_controller, tts, game_controller, npc_controller
 import os
 from dotenv import load_dotenv  # 引入載入工具
 from fastapi import FastAPI
@@ -44,6 +44,7 @@ app.include_router(recipe_controller.router)
 app.include_router(user_controller.router)
 app.include_router(upload_controller.router)
 app.include_router(game_controller.router)
+app.include_router(npc_controller.router)
 
 # 3. 掛載語音功能路由
 # 這裡加上 prefix="/api" 後，前端 fetch 的網址就會是 /api/tts

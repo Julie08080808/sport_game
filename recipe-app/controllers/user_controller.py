@@ -16,12 +16,12 @@ def login(username: str = Form(...), password: str = Form(...)):
     玩家登入 API。
     """
     print("\n" + "="*50)
-    print(f"🔑 [收到 Unity 登入請求] 帳號: {username}")
+    print(f"[收到 Unity 登入請求] 帳號: {username}")
     print("="*50)
 
     user = user_model.verify_user(username, password)
     if not user:
-        print(f"❌ [登入失敗] 帳號或密碼錯誤: {username}")
+        print(f"[登入失敗] 帳號或密碼錯誤: {username}")
         print("="*50 + "\n")
         raise HTTPException(status_code=401, detail="帳號或密碼錯誤")
 
@@ -47,7 +47,7 @@ def login(username: str = Form(...), password: str = Form(...)):
     finally:
         conn.close()
 
-    print(f"✨ [登入驗證成功] 玩家 UID: {uid}，資料庫數據已打包回傳 Unity！")
+    print(f"[登入驗證成功] 玩家 UID: {uid}，資料庫數據已打包回傳 Unity")
     print("="*50 + "\n")
 
     return {
@@ -64,17 +64,17 @@ def register(username: str = Form(...), password: str = Form(...)):
     玩家註冊 API。
     """
     print("\n" + "="*50)
-    print(f"🚀 [收到 Unity 註冊請求] 正在嘗試將玩家寫入資料庫...")
-    print(f"   👤 註冊帳號: {username}")
+    print(f"[收到 Unity 註冊請求] 正在嘗試將玩家寫入資料庫...")
+    print(f"   註冊帳號: {username}")
     print("="*50)
 
     new_user = user_model.create_user_with_stats(username, password)
     if not new_user:
-        print(f"❌ [資料庫寫入失敗] 帳號 '{username}' 已存在於 users 資料表中！")
+        print(f"[資料庫寫入失敗] 帳號 '{username}' 已存在於 users 資料表中")
         print("="*50 + "\n")
         raise HTTPException(status_code=400, detail="此帳號已存在，請換一個名稱")
 
-    print(f"✨ [資料庫寫入成功] 玩家帳號已建立，並同步在 user_stats 與 user_scenes 中初始化完成！")
+    print(f"[資料庫寫入成功] 玩家帳號已建立，並同步在 user_stats 與 user_scenes 中初始化完成")
     print("="*50 + "\n")
 
     return {
