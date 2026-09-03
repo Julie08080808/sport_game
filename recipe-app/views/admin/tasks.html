@@ -1,0 +1,26 @@
+{% extends "admin/base.html" %}
+{% block title %}任務管理{% endblock %}
+{% block page_title %}任務管理{% endblock %}
+{% block page_subtitle %}建立、修改與檢查所有遊戲任務{% endblock %}
+{% block content %}
+<div class="toolbar">
+  <form class="search-box" method="get" action="/admin/tasks"><span>⌕</span><input type="text" name="q" value="{{ q }}" placeholder="搜尋任務名稱、Key 或運動類型"></form>
+  <a class="primary-btn" href="/admin/tasks/new">＋ 新增任務</a>
+</div>
+<section class="panel table-panel"><div class="table-wrap"><table>
+<thead><tr><th>任務</th><th>分類</th><th>運動 / 目標</th><th>輸入方式</th><th>重複</th><th>NPC / 場景</th><th>狀態</th><th class="right">操作</th></tr></thead>
+<tbody>
+{% for task in tasks %}
+<tr>
+  <td><div class="title-cell"><strong>{{ task.task_name }}</strong><span>{{ task.task_key }}</span></div></td>
+  <td><span class="tag">{{ task.task_category }}</span><span class="muted-line">{{ task.task_type }}</span></td>
+  <td><strong>{{ task.exercise_type or '-' }}</strong><span class="muted-line">{% if task.goal_type == 'time' %}{{ task.target_seconds or 0 }} 秒{% else %}{{ task.target_count or 0 }} 次{% endif %}</span></td>
+  <td><span>{{ task.input_requirement }}</span>{% if task.required_ball_count %}<span class="muted-line">{{ task.required_ball_count }} 顆球</span>{% endif %}</td>
+  <td><span class="tag pale">{{ task.recurrence_type }}</span></td>
+  <td><strong>{{ task.npc_name or '未指定' }}</strong><span class="muted-line">{{ task.scene_name or ('Scene #' ~ task.scene_id) }}</span></td>
+  <td>{% if task.is_active %}<span class="status-chip status-active">啟用</span>{% else %}<span class="status-chip status-disabled">停用</span>{% endif %}</td>
+  <td class="right"><div class="row-actions"><a class="mini-btn" href="/admin/tasks/{{ task.task_id }}/edit">編輯</a><form method="post" action="/admin/tasks/{{ task.task_id }}/toggle"><button class="mini-btn secondary" type="submit">{% if task.is_active %}停用{% else %}啟用{% endif %}</button></form></div></td>
+</tr>
+{% else %}<tr><td colspan="8"><div class="empty-state">找不到任務</div></td></tr>{% endfor %}
+</tbody></table></div></section>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "admin/base.html" %}
+{% block title %}儀表板{% endblock %}
+{% block page_title %}儀表板{% endblock %}
+{% block page_subtitle %}快速掌握任務、玩家與最新進度{% endblock %}
+{% block content %}
+<div class="stat-grid">
+  <article class="stat-card"><div class="stat-icon soft-green">任</div><div><span>任務總數</span><strong>{{ task_count }}</strong></div></article>
+  <article class="stat-card"><div class="stat-icon soft-blue">人</div><div><span>使用者總數</span><strong>{{ user_count }}</strong></div></article>
+  <article class="stat-card"><div class="stat-icon soft-orange">進</div><div><span>進行中任務</span><strong>{{ active_progress_count }}</strong></div></article>
+  <article class="stat-card"><div class="stat-icon soft-purple">完</div><div><span>完成紀錄</span><strong>{{ completed_progress_count }}</strong></div></article>
+</div>
+<div class="two-col">
+  <section class="panel">
+    <div class="panel-head"><div><h2>快捷操作</h2><p>常用功能直接從這裡開始</p></div></div>
+    <div class="quick-grid">
+      <a class="quick-card" href="/admin/tasks/new"><div class="quick-icon">＋</div><div><strong>新增任務</strong><span>建立任務、輸入條件與獎勵</span></div></a>
+      <a class="quick-card" href="/admin/tasks"><div class="quick-icon">✓</div><div><strong>查看任務</strong><span>編輯、停用與檢查目前內容</span></div></a>
+      <a class="quick-card" href="/admin/users"><div class="quick-icon">♙</div><div><strong>查看玩家</strong><span>等級、場景與任務紀錄</span></div></a>
+    </div>
+  </section>
+  <section class="panel">
+    <div class="panel-head"><div><h2>最近任務活動</h2><p>最新的玩家任務狀態</p></div></div>
+    <div class="activity-list">
+      {% for row in recent_progress %}
+      <div class="activity-item"><div class="activity-dot"></div><div class="activity-main"><strong>{{ row.username }} · {{ row.task_name }}</strong><span>#{{ row.progress_id }} · {{ row.updated_at or '-' }}</span></div><span class="status-chip status-{{ row.status }}">{{ row.status }}</span></div>
+      {% else %}<div class="empty-state">目前還沒有任務紀錄</div>{% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

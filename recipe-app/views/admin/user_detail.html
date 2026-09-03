@@ -1,0 +1,22 @@
+{% extends "admin/base.html" %}
+{% block title %}玩家 {{ user.username }}{% endblock %}
+{% block page_title %}{{ user.username }}{% endblock %}
+{% block page_subtitle %}User #{{ user.user_id }} 的遊戲與任務資料{% endblock %}
+{% block content %}
+{% if replay %}<div class="notice success">✓ 已重新開放此任務供測試；回到 Unity 後即可重新接取。</div>{% endif %}
+<div class="stat-grid three-cards">
+  <article class="stat-card"><div class="stat-icon soft-blue">Lv</div><div><span>玩家等級</span><strong>{{ user.player_level or 1 }}</strong></div></article>
+  <article class="stat-card"><div class="stat-icon soft-purple">XP</div><div><span>玩家 EXP</span><strong>{{ user.player_exp or 0 }}</strong></div></article>
+  <article class="stat-card"><div class="stat-icon soft-orange">$</div><div><span>金幣</span><strong>{{ user.money or 0 }}</strong></div></article>
+</div>
+<section class="panel"><div class="panel-head"><div><h2>景點進度</h2><p>目前各個家園 / 景點的成長狀態</p></div></div><div class="scene-grid">
+{% for scene in scenes %}<div class="scene-card"><div><strong>{{ scene.scene_name }}</strong><span>Scene #{{ scene.scene_id }}</span></div><div class="scene-level">Lv. {{ scene.scene_level }}</div><div class="progress-track"><div class="progress-fill" style="width: {{ [scene.scene_exp or 0, 100] | min }}%"></div></div><small>{{ scene.scene_exp or 0 }} EXP</small></div>{% else %}<div class="empty-state">尚無景點資料</div>{% endfor %}
+</div></section>
+<section class="panel table-panel"><div class="panel-head pad-head"><div><h2>任務紀錄</h2><p>保留每一次 attempt，不刪除歷史</p></div></div><div class="table-wrap"><table>
+<thead><tr><th>Progress</th><th>任務</th><th>狀態</th><th>進度</th><th>接取時間</th><th class="right">測試</th></tr></thead>
+<tbody>
+{% for row in progress %}
+<tr><td>#{{ row.progress_id }}</td><td><div class="title-cell"><strong>{{ row.task_name }}</strong><span>{{ row.task_key }} · {{ row.recurrence_type }}</span></div></td><td><span class="status-chip status-{{ row.status }}">{{ row.status }}</span></td><td>{% if row.target_seconds %}{{ row.progress_seconds or 0 }} / {{ row.target_seconds }} 秒{% else %}{{ row.progress_count or 0 }} / {{ row.target_count or 0 }} 次{% endif %}</td><td>{{ row.accepted_at or '-' }}</td><td class="right"><form method="post" action="/admin/users/{{ user.user_id }}/tasks/{{ row.task_id }}/replay" onsubmit="return confirm('確定要重新開放「{{ row.task_name }}」供測試嗎？');"><button class="mini-btn warning" type="submit">重新開放測試</button></form></td></tr>
+{% else %}<tr><td colspan="6"><div class="empty-state">目前沒有任務紀錄</div></td></tr>{% endfor %}
+</tbody></table></div></section>
+{% endblock %}

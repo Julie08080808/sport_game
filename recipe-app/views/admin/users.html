@@ -1,0 +1,14 @@
+{% extends "admin/base.html" %}
+{% block title %}使用者{% endblock %}
+{% block page_title %}使用者{% endblock %}
+{% block page_subtitle %}查看玩家等級、資源與任務完成情況{% endblock %}
+{% block content %}
+<div class="toolbar"><form class="search-box" method="get" action="/admin/users"><span>⌕</span><input type="text" name="q" value="{{ q }}" placeholder="搜尋帳號或 User ID"></form></div>
+<section class="panel table-panel"><div class="table-wrap"><table>
+<thead><tr><th>玩家</th><th>等級</th><th>EXP</th><th>金幣</th><th>任務嘗試</th><th>完成紀錄</th><th class="right">操作</th></tr></thead>
+<tbody>
+{% for user in users %}
+<tr><td><div class="title-cell"><strong>{{ user.username }}</strong><span>User #{{ user.user_id }}</span></div></td><td><strong>Lv. {{ user.player_level or 1 }}</strong></td><td>{{ user.player_exp or 0 }}</td><td>{{ user.money or 0 }}</td><td>{{ user.task_attempts or 0 }}</td><td>{{ user.completed_tasks or 0 }}</td><td class="right"><a class="mini-btn" href="/admin/users/{{ user.user_id }}">查看</a></td></tr>
+{% else %}<tr><td colspan="7"><div class="empty-state">找不到使用者</div></td></tr>{% endfor %}
+</tbody></table></div></section>
+{% endblock %}

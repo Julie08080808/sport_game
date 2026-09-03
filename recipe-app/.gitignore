@@ -1,5 +1,6 @@
 # 環境變數(包含資料庫密碼,絕不可上傳)
 .env
+!.env.example
 
 # Python 編譯快取
 __pycache__/

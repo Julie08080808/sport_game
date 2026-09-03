@@ -1,38 +1,58 @@
 """
-NPC 對話控制器 (Controller)
-處理「點擊 NPC 抽對話/任務」與「玩家接受/放棄任務」的請求。
+NPC 任務 Controller - 新版 Task 架構
+========================================
+POST /api/npc/dialogue
+    取得某 NPC 目前可以提供給玩家的一個任務。
+
+POST /api/npc/task/respond
+    玩家接受或暫時不接該任務。
 """
-from fastapi import APIRouter, HTTPException, Form
+
+from typing import Optional
+
+from fastapi import APIRouter, Form, HTTPException
 from models import npc_model
 
-router = APIRouter(prefix="/api/npc", tags=["NPC Dialogue"])
+router = APIRouter(prefix="/api/npc", tags=["NPC Tasks"])
 
 
 @router.post("/dialogue")
-def get_dialogue(user_id: int = Form(...), npc_id: str = Form(...)):
-    dialogue = npc_model.get_random_dialogue(user_id, npc_id)
-    if not dialogue:
-        raise HTTPException(status_code=404, detail="這個 NPC 目前沒有可用的任務")
+def get_dialogue(
+    user_id: int = Form(...),
+    npc_key: Optional[str] = Form(None),
+    # 暫時相容舊 Unity：舊版送的是 npc_id 字串，例如 FARMER_01。
+    npc_id: Optional[str] = Form(None),
+):
+    resolved_npc_key = npc_key or npc_id
+    if not resolved_npc_key:
+        raise HTTPException(status_code=400, detail="請提供 npc_key")
 
-    return {
-        "success": True,
-        "dialogue_id": dialogue["dialogue_id"],
-        "npc_id": dialogue["npc_id"],
-        "npc_name": dialogue["npc_name"],
-        "dialogue_text": dialogue["dialogue_text"],
-        "task_category": dialogue["task_category"],
-        "action_type": dialogue["action_type"],
-        "target_scene": dialogue["target_scene"],
-        "background_key": dialogue["background_key"],
-        "reward_exp": dialogue["reward_exp"],
-        "reward_coin": dialogue["reward_coin"],
-    }
+    result = npc_model.get_npc_task_offer(user_id, resolved_npc_key)
+    if not result.get("success"):
+        raise HTTPException(status_code=404, detail=result.get(
+            "message", "NPC 目前沒有可用任務"))
+
+    return result
 
 
 @router.post("/task/respond")
-def respond_task(user_id: int = Form(...), dialogue_id: int = Form(...), accepted: bool = Form(...)):
-    status = "accepted" if accepted else "abandoned"
-    ok = npc_model.record_task_response(user_id, dialogue_id, status)
-    if not ok:
-        raise HTTPException(status_code=500, detail="任務狀態寫入失敗")
-    return {"success": True, "status": status}
+def respond_task(
+    user_id: int = Form(...),
+    npc_id: int = Form(...),
+    task_id: int = Form(...),
+    accepted: bool = Form(...),
+    story_variant: str = Form("A"),
+):
+    result = npc_model.accept_or_decline_task(
+        user_id=user_id,
+        npc_id=npc_id,
+        task_id=task_id,
+        accepted=accepted,
+        story_variant=story_variant,
+    )
+
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=400, detail=result.get("message", "任務處理失敗"))
+
+    return result

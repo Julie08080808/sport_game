@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}管理後台{% endblock %}｜樂齡運動</title>
+  <link rel="stylesheet" href="/static/admin/admin.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">樂</div>
+      <div><strong>樂齡運動</strong><small>管理後台</small></div>
+    </div>
+
+    <nav class="nav-list">
+      <a class="nav-item {% if page == 'dashboard' %}active{% endif %}" href="/admin"><span class="nav-icon">⌂</span>儀表板</a>
+      <a class="nav-item {% if page == 'tasks' %}active{% endif %}" href="/admin/tasks"><span class="nav-icon">✓</span>任務管理</a>
+      <a class="nav-item {% if page == 'users' %}active{% endif %}" href="/admin/users"><span class="nav-icon">♙</span>使用者</a>
+    </nav>
+
+    <div class="sidebar-note"><span class="dot"></span>開發管理模式<small>Phase 6 MVP</small></div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div><h1>{% block page_title %}管理後台{% endblock %}</h1><p>{% block page_subtitle %}管理遊戲內容與玩家資料{% endblock %}</p></div>
+      <a class="ghost-btn" href="/docs" target="_blank">API 文件 ↗</a>
+    </header>
+    <section class="content">{% block content %}{% endblock %}</section>
+  </main>
+</div>
+</body>
+</html>

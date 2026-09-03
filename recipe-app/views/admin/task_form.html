@@ -1,0 +1,67 @@
+{% extends "admin/base.html" %}
+{% block title %}{% if mode == 'new' %}新增任務{% else %}編輯任務{% endif %}{% endblock %}
+{% block page_title %}{% if mode == 'new' %}新增任務{% else %}編輯任務{% endif %}{% endblock %}
+{% block page_subtitle %}把任務規則整理成表單，不需要再手動寫 SQL{% endblock %}
+{% block content %}
+{% if saved %}<div class="notice success">✓ 任務已儲存</div>{% endif %}
+<form method="post" class="form-layout">
+  <section class="panel form-card">
+    <div class="section-title"><div class="step-badge">01</div><div><h2>基本資料</h2><p>任務在遊戲中顯示與分類的基本資訊</p></div></div>
+    <div class="form-grid two">
+      <label><span>任務 Key *</span><input name="task_key" required value="{{ task.task_key or '' }}" placeholder="FARM_DAILY_GRIP_002"></label>
+      <label><span>任務名稱 *</span><input name="task_name" required value="{{ task.task_name or '' }}" placeholder="幫忙整理蔬菜"></label>
+      <label class="full"><span>任務描述</span><textarea name="task_description" rows="3" placeholder="簡單描述這個任務要做什麼">{{ task.task_description or '' }}</textarea></label>
+      <label><span>任務分類</span><select name="task_category">{% for value, label in [('main','主線'),('daily','每日'),('commission','委託'),('special','特殊')] %}<option value="{{ value }}" {% if task.task_category == value %}selected{% endif %}>{{ label }}（{{ value }}）</option>{% endfor %}</select></label>
+      <label><span>任務型態</span><select name="task_type">{% for value, label in [('persistent','可暫停繼續'),('immediate','即時任務')] %}<option value="{{ value }}" {% if task.task_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label><span>任務模式</span><select name="task_mode"><option value="basic" {% if task.task_mode != 'advanced' %}selected{% endif %}>Basic</option><option value="advanced" {% if task.task_mode == 'advanced' %}selected{% endif %}>Advanced</option></select></label>
+      <label><span>最低玩家等級</span><input type="number" min="1" name="required_player_level" value="{{ task.required_player_level or 1 }}"></label>
+    </div>
+  </section>
+
+  <section class="panel form-card">
+    <div class="section-title"><div class="step-badge">02</div><div><h2>任務來源</h2><p>決定任務在哪個景點、由哪個 NPC 發送</p></div></div>
+    <div class="form-grid two">
+      <label><span>景點 *</span><select name="scene_id" required>{% for scene in scenes %}<option value="{{ scene.scene_id }}" {% if task.scene_id == scene.scene_id %}selected{% endif %}>{{ scene.scene_name }}（{{ scene.scene_key }}）</option>{% endfor %}</select></label>
+      <label><span>NPC</span><select name="npc_id"><option value="">不指定</option>{% for npc in npcs %}<option value="{{ npc.npc_id }}" {% if task.npc_id == npc.npc_id %}selected{% endif %}>{{ npc.npc_name }}（Scene {{ npc.scene_id }}）</option>{% endfor %}</select></label>
+    </div>
+  </section>
+
+  <section class="panel form-card">
+    <div class="section-title"><div class="step-badge">03</div><div><h2>運動與感測</h2><p>設定玩家要做什麼，以及使用什麼感測方式</p></div></div>
+    <div class="form-grid three">
+      <label><span>運動類型</span><input name="exercise_type" value="{{ task.exercise_type or '' }}" placeholder="Grip"></label>
+      <label><span>目標類型</span><select name="goal_type"><option value="count" {% if task.goal_type != 'time' %}selected{% endif %}>次數（count）</option><option value="time" {% if task.goal_type == 'time' %}selected{% endif %}>時間（time）</option></select></label>
+      <label><span>目標次數</span><input type="number" min="0" name="target_count" value="{{ task.target_count if task.target_count is not none else '' }}"></label>
+      <label><span>目標秒數</span><input type="number" min="0" name="target_seconds" value="{{ task.target_seconds if task.target_seconds is not none else '' }}"></label>
+      <label><span>輸入需求</span><select name="input_requirement">{% for value, label in [('ball_required','一定要感測球'),('ball_or_imu','感測球或手機'),('imu_required','一定要手機感測器'),('both_required','球 + 手機（保留）')] %}<option value="{{ value }}" {% if task.input_requirement == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label><span>需要球數</span><input type="number" min="0" name="required_ball_count" value="{{ task.required_ball_count or 0 }}"></label>
+    </div>
+  </section>
+
+  <section class="panel form-card">
+    <div class="section-title"><div class="step-badge">04</div><div><h2>重複與有效期限</h2><p>控制任務何時可以再次出現</p></div></div>
+    <div class="form-grid three">
+      <label><span>重複方式</span><select name="recurrence_type"><option value="none" {% if task.recurrence_type != 'daily' and task.recurrence_type != 'weekly' %}selected{% endif %}>不重複</option><option value="daily" {% if task.recurrence_type == 'daily' %}selected{% endif %}>每日</option><option value="weekly" {% if task.recurrence_type == 'weekly' %}selected{% endif %}>每週</option></select></label>
+      <label><span>過期方式</span><select name="expire_policy">{% for value, label in [('none','不過期'),('after_accept','接取後倒數'),('end_of_day','當日結束'),('end_of_week','本週結束')] %}<option value="{{ value }}" {% if task.expire_policy == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label><span>接取後過期秒數</span><input type="number" min="0" name="expire_after_seconds" value="{{ task.expire_after_seconds if task.expire_after_seconds is not none else '' }}"></label>
+    </div>
+    <div class="check-row">
+      <label class="check-card"><input type="checkbox" name="allow_pause" value="1" {% if task.allow_pause or mode == 'new' %}checked{% endif %}><div><strong>允許暫停</strong><span>運動途中可以先停下來</span></div></label>
+      <label class="check-card"><input type="checkbox" name="allow_resume" value="1" {% if task.allow_resume or mode == 'new' %}checked{% endif %}><div><strong>允許繼續</strong><span>離開後可以沿用原本進度</span></div></label>
+      <label class="check-card"><input type="checkbox" name="is_initial_unlock" value="1" {% if task.is_initial_unlock %}checked{% endif %}><div><strong>初始解鎖</strong><span>新舊玩家直接取得此任務</span></div></label>
+      <label class="check-card"><input type="checkbox" name="is_active" value="1" {% if task.is_active or mode == 'new' %}checked{% endif %}><div><strong>啟用任務</strong><span>關閉後 NPC 不會再發送</span></div></label>
+    </div>
+  </section>
+
+  <section class="panel form-card">
+    <div class="section-title"><div class="step-badge">05</div><div><h2>完成獎勵</h2><p>玩家完成任務後取得的成長與貨幣</p></div></div>
+    <div class="form-grid three">
+      <label><span>玩家 EXP</span><input type="number" min="0" name="reward_player_exp" value="{{ task.reward_player_exp or 0 }}"></label>
+      <label><span>景點 EXP</span><input type="number" min="0" name="reward_scene_exp" value="{{ task.reward_scene_exp or 0 }}"></label>
+      <label><span>金幣</span><input type="number" min="0" name="reward_money" value="{{ task.reward_money or 0 }}"></label>
+    </div>
+  </section>
+
+  <div class="sticky-actions"><a class="ghost-btn" href="/admin/tasks">取消</a><button class="primary-btn large" type="submit">{% if mode == 'new' %}建立任務{% else %}儲存修改{% endif %}</button></div>
+</form>
+{% endblock %}
