@@ -17,6 +17,8 @@ from controllers import (
     tts,
     game_controller,
     npc_controller,
+    quiz_controller,
+    shop_controller,
 )
 import os
 
@@ -88,6 +90,8 @@ app.include_router(user_controller.router)
 app.include_router(upload_controller.router)
 app.include_router(game_controller.router)
 app.include_router(npc_controller.router)
+app.include_router(quiz_controller.router)
+app.include_router(shop_controller.router)
 
 
 # TTS
@@ -167,6 +171,16 @@ def serve_index():
 @app.get("/login")
 def serve_login():
     return FileResponse("views/login.html")
+
+
+@app.get("/quiz")
+def serve_quiz():
+    return FileResponse("views/quiz.html")
+
+
+@app.get("/shop")
+def serve_shop():
+    return FileResponse("views/shop.html")
 
 
 # ============================================================

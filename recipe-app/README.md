@@ -30,16 +30,21 @@ recipe-app/
 │
 ├── models/                      # M - Model 資料模型層
 │   ├── recipe_model.py          #   食譜資料存取
-│   └── user_model.py            #   使用者資料存取
+│   ├── user_model.py            #   使用者資料存取
+│   └── shop_model.py            #   商店/購買資料存取
 │
 ├── controllers/                 # C - Controller 控制器層
 │   ├── recipe_controller.py     #   食譜 API
 │   ├── user_controller.py       #   登入/註冊 API
-│   └── upload_controller.py     #   圖片上傳 API
+│   ├── upload_controller.py     #   圖片上傳 API
+│   └── shop_controller.py       #   商店 API
 │
 ├── views/                       # V - View 視圖層
 │   ├── index.html               #   食譜首頁
 │   ├── login.html               #   登入/註冊頁
+│   ├── shop.html                #   商店頁
+│   ├── shop.js
+│   ├── shop.css
 │   ├── style.css
 │   ├── script.js
 │   └── login.js
@@ -72,6 +77,7 @@ DB_PORT=5432
 
 ```bash
 psql -U postgres -d test_rec_0404 -f schema_users.sql
+psql -U postgres -d test_rec_0404 -f schema_shop.sql
 ```
 
 ### 4. 啟動伺服器
@@ -95,6 +101,9 @@ uvicorn main:app --reload
 | POST | `/api/users/register` | 註冊 |
 | POST | `/api/users/login` | 登入 |
 | POST | `/api/upload/image` | 上傳圖片 |
+| GET  | `/api/shop/items` | 取得商店上架商品清單 |
+| POST | `/api/shop/purchase` | 購買商品(扣金幣、寫入庫存) |
+| GET  | `/api/shop/inventory/{user_id}` | 取得玩家庫存 |
 
 ## 資安注意事項(GitHub 上傳前必看)
 
