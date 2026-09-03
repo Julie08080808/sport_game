@@ -1,0 +1,132 @@
+.money-bar {
+    font-size: 1.3rem;
+    font-weight: bold;
+    padding-bottom: 8px;
+}
+
+.back-home-btn {
+    display: inline-block;
+    color: white;
+    text-decoration: none;
+    font-size: 1rem;
+    padding-bottom: 12px;
+}
+
+.shop-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.shop-container h2 {
+    margin-bottom: 10px;
+}
+
+.uid-bar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    background: #fff3cd;
+    border: 1px solid #ffe08a;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 20px;
+    font-size: 0.95rem;
+}
+
+.uid-bar input {
+    width: 100px;
+    padding: 4px 8px;
+}
+
+.hint {
+    color: #888;
+    font-size: 0.95rem;
+}
+
+.items-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 16px;
+    margin-bottom: 30px;
+}
+
+.item-card {
+    background: white;
+    border: 1px solid #eee;
+    border-radius: 12px;
+    padding: 14px;
+    text-align: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.item-card img {
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+    margin-bottom: 8px;
+}
+
+.item-name {
+    font-weight: bold;
+    font-size: 1.05rem;
+}
+
+.item-desc {
+    font-size: 0.85rem;
+    color: #777;
+    min-height: 2.2em;
+    margin: 4px 0;
+}
+
+.item-price {
+    font-weight: bold;
+    color: #ff6b6b;
+    margin-bottom: 8px;
+}
+
+.item-qty {
+    color: #555;
+    margin-top: 4px;
+}
+
+.buy-btn {
+    width: 100%;
+    padding: 8px 0;
+    border: none;
+    border-radius: 8px;
+    background: #ff6b6b;
+    color: white;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.buy-btn:hover {
+    background: #ff5252;
+}
+
+.item-card.owned {
+    background: #f6fff6;
+    border-color: #cdeccd;
+}
+
+.toast {
+    position: fixed;
+    left: 50%;
+    bottom: 30px;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 0.95rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
