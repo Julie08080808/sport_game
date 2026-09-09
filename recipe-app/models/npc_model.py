@@ -667,3 +667,137 @@ def accept_or_decline_task(
         }
     finally:
         conn.close()
+
+
+def complete_task(user_id: int, task_progress_id: int):
+    """
+    玩家完成任務(暫時先不分 completed -> claim 兩步，直接完成即發獎):
+    1. 玩家整體 EXP / 金幣，沿用其他功能一致的「每 1000 經驗升 1 級」公式。
+    2. 場景完成次數 completion_count(跟 scene_exp 分開的獨立欄位，語意只做外觀解鎖用):
+       每滿 20 次，scene_level +1、completion_count 歸零重算。
+    3. user_task_progress 狀態改為 rewarded。
+    """
+    conn = get_db_conn()
+
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT
+                    p.progress_id,
+                    p.status,
+                    t.task_id,
+                    t.task_name,
+                    t.scene_id,
+                    t.reward_player_exp,
+                    t.reward_scene_exp,
+                    t.reward_money
+                FROM user_task_progress p
+                JOIN tasks t ON t.task_id = p.task_id
+                WHERE p.progress_id = %s
+                  AND p.user_id = %s
+                FOR UPDATE;
+                """,
+                (task_progress_id, user_id),
+            )
+            progress = cur.fetchone()
+
+            if not progress:
+                return {
+                    "success": False,
+                    "message": "找不到這筆任務進度",
+                }
+
+            if progress["status"] not in ACTIVE_OR_RESUMABLE:
+                return {
+                    "success": False,
+                    "message": f"這筆任務目前狀態是「{progress['status']}」，無法完成",
+                }
+
+            reward_player_exp = progress["reward_player_exp"] or 0
+            reward_scene_exp = progress["reward_scene_exp"] or 0
+            reward_money = progress["reward_money"] or 0
+
+            cur.execute(
+                """
+                UPDATE user_stats
+                SET player_exp = (player_exp + %s) %% 1000,
+                    player_level = player_level + floor((player_exp + %s) / 1000)::int,
+                    money = money + %s
+                WHERE user_id = %s
+                RETURNING player_level, player_exp, money;
+                """,
+                (reward_player_exp, reward_player_exp, reward_money, user_id),
+            )
+            player_stats = cur.fetchone()
+
+            cur.execute(
+                """
+                UPDATE user_scenes
+                SET scene_exp = scene_exp + %s,
+                    completion_count = CASE
+                        WHEN completion_count + 1 >= 20 THEN completion_count + 1 - 20
+                        ELSE completion_count + 1
+                    END,
+                    scene_level = scene_level + CASE
+                        WHEN completion_count + 1 >= 20 THEN 1
+                        ELSE 0
+                    END,
+                    -- 場景升級的當下，把玩家先前手動調回舊外觀的選擇清掉，
+                    -- 讓新解鎖的階段重新變成預設顯示(玩家之後可以再手動調回去)。
+                    display_level_cap = CASE
+                        WHEN completion_count + 1 >= 20 THEN NULL
+                        ELSE display_level_cap
+                    END
+                WHERE user_id = %s
+                  AND scene_id = %s
+                RETURNING scene_level, scene_exp, completion_count, display_level_cap,
+                    (completion_count = 0) AS leveled_up;
+                """,
+                (reward_scene_exp, user_id, progress["scene_id"]),
+            )
+            scene_stats = cur.fetchone()
+
+            cur.execute(
+                """
+                UPDATE user_task_progress
+                SET status = 'rewarded',
+                    completed_at = CURRENT_TIMESTAMP,
+                    rewarded_at = CURRENT_TIMESTAMP,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE progress_id = %s;
+                """,
+                (task_progress_id,),
+            )
+
+            conn.commit()
+
+            return {
+                "success": True,
+                "message": f"「{progress['task_name']}」完成！",
+                "task_id": progress["task_id"],
+                "task_progress_id": task_progress_id,
+                "player_level": player_stats["player_level"],
+                "player_exp": player_stats["player_exp"],
+                "money": player_stats["money"],
+                "scene_id": progress["scene_id"],
+                "scene_level": scene_stats["scene_level"],
+                "scene_exp": scene_stats["scene_exp"],
+                "completion_count": scene_stats["completion_count"],
+                # Unity 的 JsonUtility 讀不了 JSON null 進 int 欄位，-1 代表沒有手動覆寫。
+                "display_level_cap": (
+                    -1 if scene_stats["display_level_cap"] is None
+                    else scene_stats["display_level_cap"]
+                ),
+                "leveled_up": scene_stats["leveled_up"],
+            }
+
+    except Exception as e:
+        conn.rollback()
+        print(f"[NPC Model Error] 完成任務失敗: {e}")
+        return {
+            "success": False,
+            "message": f"完成任務失敗: {e}",
+        }
+    finally:
+        conn.close()

@@ -6,6 +6,9 @@ POST /api/npc/dialogue
 
 POST /api/npc/task/respond
     玩家接受或暫時不接該任務。
+
+POST /api/npc/task/complete
+    玩家完成任務，發放獎勵並更新場景完成次數(completion_count)。
 """
 
 from typing import Optional
@@ -54,5 +57,22 @@ def respond_task(
     if not result.get("success"):
         raise HTTPException(
             status_code=400, detail=result.get("message", "任務處理失敗"))
+
+    return result
+
+
+@router.post("/task/complete")
+def complete_task(
+    user_id: int = Form(...),
+    task_progress_id: int = Form(...),
+):
+    result = npc_model.complete_task(
+        user_id=user_id,
+        task_progress_id=task_progress_id,
+    )
+
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=400, detail=result.get("message", "完成任務失敗"))
 
     return result

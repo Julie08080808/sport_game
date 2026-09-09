@@ -25,6 +25,15 @@ UPDATE scenes SET scene_key = CASE scene_id
 END
 WHERE scene_key IS NULL;
 
+-- user_scenes 擴充：專門記錄「這個場景完成過幾次任務」，跟 scene_exp(經驗值)分開，
+-- 語意單純只做外觀解鎖用──每滿 20 次，scene_level +1、completion_count 歸零重算。
+ALTER TABLE user_scenes ADD COLUMN IF NOT EXISTS completion_count INTEGER NOT NULL DEFAULT 0;
+
+-- display_level_cap：玩家手動把「這個場景的建築外觀」調回舊階段時使用，NULL 代表沒有手動調整過，
+-- 顯示時直接用 scene_level 本身(最新已解鎖階段)。每次 scene_level 再往上升時會被清空(見 npc_model.complete_task)，
+-- 讓新解鎖的外觀重新變成預設，玩家可以再手動調回去──五棟建築各自獨立，不會一起變動。
+ALTER TABLE user_scenes ADD COLUMN IF NOT EXISTS display_level_cap INTEGER;
+
 -- ============================================================
 -- 1. npcs：場景裡的 NPC 基本資料
 -- ============================================================
