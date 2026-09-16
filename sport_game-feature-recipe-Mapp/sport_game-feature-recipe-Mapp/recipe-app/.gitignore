@@ -1,0 +1,29 @@
+# 環境變數(包含資料庫密碼,絕不可上傳)
+.env
+
+# Python 編譯快取
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+
+# 虛擬環境
+venv/
+.venv/
+env/
+
+# IDE 設定
+.vscode/
+.idea/
+*.swp
+
+# 系統檔案
+.DS_Store
+Thumbs.db
+
+# 日誌檔
+*.log
+
+# 上傳的圖片(視需要決定是否要上傳)
+# image/

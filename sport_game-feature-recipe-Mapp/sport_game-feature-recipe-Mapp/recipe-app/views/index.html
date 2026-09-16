@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>銀髮族食譜 App</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/fruits.css">
+</head>
+<body>
+    <header>
+        <h1>美味食譜</h1>
+        <div class="search-bar">
+            <div class="search-input-wrap">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="search-input" placeholder="搜尋食譜名稱或食材" oninput="handleSearch()">
+            </div>
+        </div>
+        <div class="filter-bar">
+    <div class="filter-row">
+        <button class="filter-btn active" onclick="filterRecipes('all')">全部</button>
+        <button class="filter-btn" onclick="filterRecipes(1)">早餐</button>
+        <button class="filter-btn" onclick="filterRecipes(2)">午晚餐</button>
+    </div>
+    <div class="filter-row">
+        <button class="filter-btn" onclick="filterRecipes(3)">點心</button>
+        <button class="filter-btn" onclick="filterRecipes(8)">水果</button>
+    </div>
+</div>
+
+    </header>
+
+    <main class="container">
+        <!-- 一般食譜畫面 -->
+        <div id="recipe-view">
+            <div class="swiper recipe-swiper">
+                <div class="swiper-wrapper" id="recipe-wrapper"></div>
+                <div class="swiper-pagination"></div>
+            </div>
+        </div>
+
+        <!-- 水果季節畫面：點「水果」按鈕才會顯示 -->
+        <div id="fruit-view" style="display:none;">
+            <div class="season-tabs" id="season-tabs"></div>
+            <div class="swiper fruit-swiper">
+                <div class="swiper-wrapper" id="fruit-wrapper"></div>
+            </div>
+        </div>
+    </main>
+
+    <div id="detail-modal" class="modal">
+        <div class="modal-content full-screen">
+            <span class="close-btn top-right" onclick="closeModal()">&times;</span>
+            <div id="modal-content-area"></div>
+            <div class="modal-footer">
+                <button class="bottom-close-btn" onclick="closeModal()">關閉食譜內容</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <script src="/static/script.js"></script>
+</body>
+</html>
