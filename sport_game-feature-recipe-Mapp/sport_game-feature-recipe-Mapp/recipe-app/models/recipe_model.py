@@ -80,3 +80,33 @@ def fetch_recipe_steps(recipe_id: int):
             return cur.fetchall()
     finally:
         conn.close()
+def fetch_fruits_by_season():
+    """取得依季節分組的水果清單（含份量），category_id = 8 為水果。"""
+    sql = """
+        SELECT s.name AS season, r.id, r.title AS name,
+               r.image_url, fd.serving_desc
+        FROM seasons s
+        JOIN recipe_seasons rs ON s.id = rs.season_id
+        JOIN recipes r ON rs.recipe_id = r.id
+        JOIN fruit_details fd ON r.id = fd.recipe_id
+        WHERE r.category_id = 8
+        ORDER BY s.display_order, r.title;
+    """
+    conn = get_db_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(sql)
+            rows = cur.fetchall()
+    finally:
+        conn.close()
+
+    grouped = {}
+    for row in rows:
+        grouped.setdefault(row["season"], []).append({
+            "id": row["id"],
+            "name": row["name"],
+            "image_url": row["image_url"],
+            "serving_desc": row["serving_desc"],
+        })
+    return [{"season": s, "fruits": grouped.get(s, [])}
+            for s in ["全年", "春", "夏", "秋", "冬"]]
