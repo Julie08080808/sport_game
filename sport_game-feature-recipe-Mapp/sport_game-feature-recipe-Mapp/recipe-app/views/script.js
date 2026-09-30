@@ -86,7 +86,7 @@ async function speak(text, elementId, isSSML = false, checkmarkId = null) {
 async function fetchRecipes() {
     try {
         const response = await fetch(`${API_URL}/recipes`);
-        allRecipes = await response.json();
+        allRecipes = (await response.json()).filter(r => r.category_id !== FRUIT_CATEGORY_ID);
         renderRecipes(allRecipes);
     } catch (error) {
         console.error("載入失敗:", error);

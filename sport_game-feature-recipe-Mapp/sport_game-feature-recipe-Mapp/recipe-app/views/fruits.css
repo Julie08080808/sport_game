@@ -107,7 +107,7 @@
 .fruit-card-info p {
     margin: 0;
     font-size: 0.9rem;
-    color: var(--color-ink-soft);
+    color: var(#4A3428);
     line-height: 1.3;
     display: -webkit-box;
     -webkit-line-clamp: 2;       /* 份量說明最多兩行 */
