@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="m" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D4B896"/>
+      <stop offset="100%" stop-color="#A07850"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="18" fill="url(#m)" stroke="#6B4E28" stroke-width="4"/>
+  <text x="100" y="108" text-anchor="middle" font-size="72" font-family="sans-serif">🍄</text>
+  <text x="100" y="168" text-anchor="middle" font-size="28" fill="#4A2E10" font-weight="bold" font-family="sans-serif">香菇</text>
+  <!-- 替換成自己的圖：香菇格子 -->
+</svg>

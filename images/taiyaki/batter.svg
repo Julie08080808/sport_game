@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="b" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE0A0"/>
+      <stop offset="100%" stop-color="#FFC840"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="18" fill="url(#b)" stroke="#C8960A" stroke-width="4"/>
+  <text x="100" y="108" text-anchor="middle" font-size="72" font-family="sans-serif">🫓</text>
+  <text x="100" y="168" text-anchor="middle" font-size="28" fill="#8B6340" font-weight="bold" font-family="sans-serif">麵糊</text>
+  <!-- 替換成自己的圖：麵糊格子 -->
+</svg>

@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>作帳小幫手</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css?v=17">
+  <style>
+    /* ── Progress Bar ── */
+    .progress-bar-wrap {
+      background: var(--c-border);
+      border-radius: 20px;
+      height: 14px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--c-green), #A8D891);
+      border-radius: 20px;
+      transition: width .5s ease;
+    }
+    .progress-label { font-size:14px; color:var(--c-text-mid); text-align:center; margin-top:4px; font-weight:600; }
+
+    /* ── Question Card ── */
+    .question-card {
+      background: var(--c-white);
+      border-radius: var(--r-lg);
+      padding: 16px 16px;
+      box-shadow: var(--sh-md);
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow: hidden;
+    }
+    .q-stage-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--c-bg2);
+      color: var(--c-text-mid);
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+      align-self: flex-start;
+      flex-shrink: 0;
+    }
+
+    /* ── Scene Illustration ── */
+    .scene-area {
+      background: #FFFBF5;
+      border-radius: var(--r-md);
+      padding: 18px;
+      border: 2px dashed var(--c-border);
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .scene-context { font-size: clamp(12px,1.9vh,16px); color:var(--c-text-mid); margin-bottom:10px; line-height:1.3; }
+    .items-list { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
+    .item-chip {
+      background: var(--c-white);
+      border-radius: var(--r-md);
+      padding: 6px 10px;
+      box-shadow: var(--sh-sm);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+      min-width: 64px;
+      max-width: 96px;
+    }
+    .item-emoji { font-size: clamp(18px,3vh,26px); line-height:1; }
+    .item-name  {
+      font-size: clamp(10px,1.5vh,12px);
+      color:var(--c-text-mid);
+      font-weight:600;
+      text-align:center;
+      line-height: 1.2;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    .item-price { font-size: clamp(14px,2.2vh,18px); font-weight:900; color:var(--c-primary); }
+    .item-qty   { font-size: clamp(10px,1.5vh,12px); color:var(--c-text-mid); }
+
+    /* paid indicator */
+    .paid-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: clamp(12px,1.9vh,15px);
+      color: var(--c-text);
+      font-weight: 600;
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 2px dashed var(--c-border);
+    }
+    .paid-amount { font-size:clamp(15px,2.4vh,20px); font-weight:900; color:var(--c-green); }
+
+    /* ── Question Text ── */
+    .q-text {
+      font-size: clamp(17px, 3.4vh, 24px);
+      font-weight: 700;
+      color: var(--c-text);
+      line-height: 1.35;
+      flex-shrink: 0;
+    }
+
+    /* ── Answer Options ── */
+    .answer-area {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .answer-label { font-size:15px; color:var(--c-text-mid); font-weight:600; }
+    .answer-row   { display:flex; flex-wrap:wrap; gap:12px; align-items:stretch; }
+    .option-btn {
+      flex: 1 1 30%;
+      min-width: 88px;
+      border: 3px solid var(--c-border);
+      border-radius: var(--r-md);
+      padding: 10px 10px;
+      font-size: clamp(14px, 2.6vh, 22px);
+      font-weight: 900;
+      color: var(--c-text);
+      font-family: inherit;
+      text-align: center;
+      white-space: normal;
+      line-height: 1.25;
+      cursor: pointer;
+      transition: border-color .2s, background .2s, transform .1s;
+      min-height: 52px;
+      background: var(--c-white);
+    }
+    .option-btn:hover:not(:disabled)  { border-color:var(--c-primary); transform:translateY(-2px); }
+    .option-btn:active:not(:disabled) { transform:translateY(0); }
+    .option-btn.correct { border-color:var(--c-success); background:#F0FFF4; color:var(--c-success); }
+    .option-btn.wrong   { border-color:var(--c-error);   background:#FFF5F5; color:var(--c-error); }
+    .option-btn:disabled { cursor:default; opacity:.85; }
+
+    /* ── Feedback ── */
+    .feedback-msg {
+      font-size: 16px;
+      font-weight: 700;
+      text-align: center;
+      padding: 8px;
+      border-radius: var(--r-md);
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .feedback-msg.correct { background:#E8F5E9; color:#2E7D32; }
+    .feedback-msg.wrong   { background:#FFEBEE; color:#C62828; }
+    .feedback-msg.hidden  { visibility:hidden; }
+  </style>
+</head>
+<body>
+  <div class="game-page">
+
+    <!-- ── Start Screen ── -->
+    <div id="start-screen" class="start-screen">
+      <h1 class="start-title">作帳小幫手</h1>
+      <p class="start-desc">
+        模擬生活購物情境，算出正確的金額！<br>
+        共 5 題，記錄您完成的總時間。
+      </p>
+      <div class="start-rules">
+        <h3>遊戲說明</h3>
+        <ul>
+          <li>每次隨機抽 5 題，難度越高題型越靈活</li>
+          <li>看情境選出正確答案即可</li>
+          <li>完成後會顯示您總共花費的時間</li>
+        </ul>
+      </div>
+      <div class="start-btns">
+        <div class="diff-options">
+          <button class="diff-btn diff-easy" id="btn-easy">
+            <span class="diff-name">簡單</span>
+            <span class="diff-hint">5 題<br>基礎加減</span>
+          </button>
+          <button class="diff-btn diff-normal" id="btn-normal">
+            <span class="diff-name">普通</span>
+            <span class="diff-hint">5 題<br>加減乘法</span>
+          </button>
+          <button class="diff-btn diff-hard" id="btn-hard">
+            <span class="diff-name">困難</span>
+            <span class="diff-hint">5 題<br>多步驟計算</span>
+          </button>
+        </div>
+        <button class="btn btn-outline" onclick="location.href='../index.html'">← 回主選單</button>
+      </div>
+    </div>
+
+    <!-- ── Game Screen ── -->
+    <div id="game-screen" class="game-screen hidden">
+      <div class="game-header">
+        <button class="back-btn" onclick="location.href='../index.html'">← 返回</button>
+        <div class="game-title-bar">
+          <div class="game-name">作帳小幫手</div>
+          <div style="display:flex;justify-content:center;margin-top:4px">
+            <span class="diff-badge" id="diff-badge">普通</span>
+          </div>
+        </div>
+        <div class="stat-box" style="min-width:100px">
+          <span class="stat-label">⏱ 計時</span>
+          <span class="stat-value" id="timer-value">0:00</span>
+        </div>
+      </div>
+
+      <!-- Progress -->
+      <div style="padding:0 4px">
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+        </div>
+        <p class="progress-label" id="progress-label">第 1 題 / 共 5 題</p>
+      </div>
+
+      <!-- Question Card -->
+      <div class="question-card">
+        <span class="q-stage-badge" id="q-stage-badge">🔢 加法計算</span>
+
+        <div class="scene-area">
+          <p class="scene-context" id="scene-context">載入中…</p>
+          <div class="items-list" id="items-list"></div>
+          <div class="paid-row" id="paid-row" style="display:none">
+            <span>💴 您付了</span>
+            <span class="paid-amount" id="paid-amount">500 元</span>
+          </div>
+        </div>
+
+        <p class="q-text" id="q-text">載入中…</p>
+
+        <div class="answer-area">
+          <label class="answer-label">請選擇答案：</label>
+          <div class="answer-row" id="answer-row"></div>
+          <div class="feedback-msg hidden" id="feedback-msg">訊息</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Result Screen ── -->
+    <div id="result-screen" class="result-screen hidden">
+      <div class="result-card">
+        <p class="result-outcome" id="result-outcome">🏆 全部完成！</p>
+        <div class="result-stars">
+          <span class="result-star" id="star-1">⭐</span>
+          <span class="result-star" id="star-2">⭐</span>
+          <span class="result-star" id="star-3">⭐</span>
+        </div>
+        <div class="result-score-wrap">
+          <span class="result-score" id="result-score">0</span>
+          <span class="result-score-max">/ 1000 分</span>
+        </div>
+        <div class="result-breakdown">
+          <p class="breakdown-title">分數明細</p>
+          <div class="breakdown-row">
+            <span class="breakdown-label">✅ 完成分</span>
+            <span class="breakdown-pts" id="bd-completion">0 分</span>
+          </div>
+          <div class="breakdown-row">
+            <span class="breakdown-label">⚡ 速度分</span>
+            <span class="breakdown-pts" id="bd-speed">0 分</span>
+          </div>
+          <div class="breakdown-row">
+            <span class="breakdown-label">🎯 難度加成</span>
+            <span class="breakdown-pts" id="bd-difficulty">0 分</span>
+          </div>
+        </div>
+        <div class="result-btns">
+          <button class="btn btn-primary btn-lg" id="result-retry">🔁 再玩一次</button>
+          <button class="btn btn-outline" id="result-home">回主選單</button>
+        </div>
+      </div>
+      <p class="result-encourage" id="result-encourage"></p>
+    </div>
+
+    <!-- ── Dialog ── -->
+    <div id="dialog-overlay" class="dialog-overlay hidden">
+      <div class="dialog-box">
+        <div class="dialog-emoji" id="dialog-emoji">🎊</div>
+        <h2 class="dialog-title" id="dialog-title">標題</h2>
+        <p class="dialog-msg" id="dialog-msg">訊息</p>
+        <div class="dialog-btns" id="dialog-btns"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/daily-math.js?v=9"></script>
+</body>
+</html>

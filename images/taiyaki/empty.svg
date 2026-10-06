@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <rect width="200" height="200" rx="18" fill="#F5ECD7" stroke="#D4B896" stroke-width="4"/>
+  <text x="100" y="118" text-anchor="middle" font-size="80" fill="#C8B09A" font-family="sans-serif">○</text>
+  <!-- 替換成自己的圖：空格子背景 -->
+</svg>
