@@ -1,6 +1,6 @@
 """
 食譜控制器 (Controller)
-處理食譜相關的 HTTP 請求,呼叫 Model 取資料。
+處理食譜相關的 HTTP 請求,並呼叫 Model 取資料。
 """
 from fastapi import APIRouter, HTTPException
 from models import recipe_model
