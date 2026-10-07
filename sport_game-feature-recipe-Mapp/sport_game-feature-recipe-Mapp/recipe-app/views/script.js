@@ -4,6 +4,8 @@ const IMAGE_BASE_URL = "/image";
 let allRecipes = [];
 let swiperInstance = null;
 let currentAudio = null; // 用於儲存當前播放的音訊物件
+let currentShareData = null; // 分享用：目前打開的食譜與步驟
+let currentShareFile = null; // 分享用：製作好的圖卡檔案
 
 // 水果季節畫面用的狀態
 let fruitSeasonData = null;   // 抓過一次就快取，避免每次點「水果」都重打 API
@@ -294,21 +296,139 @@ function getRecipeNote(recipeId) {
     }
 }
 
-// 使用者打字時即時把筆記存進 localStorage
+// 使用者打字時即時把筆記存進 localStorage，並依筆記是否為空決定是否顯示「一併分享我的筆記」
 function saveRecipeNote(recipeId) {
     try {
         const textarea = document.getElementById('recipe-note');
         localStorage.setItem(`recipe-note-${recipeId}`, textarea.value);
+        const option = document.getElementById('share-note-option');
+        if (option) option.style.display = textarea.value.trim() ? '' : 'none';
     } catch (error) {
         console.error('儲存筆記失敗:', error);
     }
 }
 
+// ===== 分享圖卡 =====
+
+// 把 < > & 轉成安全字元，避免筆記內容被當成 HTML 執行
+function escapeHTML(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// 組出要被截成圖片的圖卡 HTML
+function buildShareCardHTML(includeNote) {
+    const { recipe, steps } = currentShareData;
+    const note = getRecipeNote(recipe.id).trim();
+
+    const ingredientsHTML = (recipe.ingredients || []).map(ing => {
+        const parts = formatIngredientString(ing.trim()).split(' ');
+        return `<div class="card-ing-row"><span>${parts[0]}</span><span>${parts.slice(1).join(' ')}</span></div>`;
+    }).join('');
+
+    const stepsHTML = steps.map(s => `
+        <div class="card-step">
+            <span class="card-step-num">${s.step_number}</span>
+            <p>${s.description}</p>
+        </div>
+    `).join('');
+
+    const noteHTML = (includeNote && note) ? `
+        <div class="card-section-title">我的筆記</div>
+        <div class="card-note">${escapeHTML(note)}</div>
+    ` : '';
+
+    // 照片用背景圖而不是 <img>，因為 html2canvas 對 object-fit 支援不完整，截圖可能變形
+    return `
+        <div class="share-card" id="share-card">
+            <div class="card-hero-img" style="background-image: url('${IMAGE_BASE_URL}/${recipe.image_url}')"></div>
+            <div class="card-body">
+                <h2 class="card-title">${recipe.name}</h2>
+                <div class="card-section-title">所需材料</div>
+                <div class="card-ingredients">${ingredientsHTML}</div>
+                <div class="card-section-title">作法步驟</div>
+                ${stepsHTML}
+                ${noteHTML}
+                <div class="card-footer">來自 銀髮健康活力APP</div>
+            </div>
+        </div>
+    `;
+}
+
+// 目前先把圖卡顯示在畫面上確認版面，之後會改成產生圖片
+// 按下分享：顯示預覽畫面，把藏在畫面外的圖卡截成圖片
+async function openSharePreview() {
+    const includeNote = document.getElementById('share-include-note')?.checked;
+    const preview = document.getElementById('share-preview');
+    const status = document.getElementById('share-preview-status');
+    const img = document.getElementById('share-preview-img');
+
+    // 先顯示「製作中」，讓長輩知道有在處理
+    img.style.display = 'none';
+        currentShareFile = null;
+    document.getElementById('share-send-btn').style.display = 'none';
+    document.getElementById('share-longpress-hint').style.display = 'none';
+    status.textContent = '圖卡製作中…';
+    status.style.display = '';
+    preview.style.display = 'flex';
+
+    document.getElementById('share-card-stage').innerHTML = buildShareCardHTML(includeNote);
+
+    try {
+        await document.fonts.ready; // 等中文字型載入完，避免截到預設字型
+        const canvas = await html2canvas(document.getElementById('share-card'), {
+            scale: 2,                   // 540px 寬輸出成 1080px，在 LINE 上比較清楚
+            useCORS: true,
+            backgroundColor: '#F8F2E4'  // 圓角外的區域填米白色，避免存成透明在某些手機變黑
+        });
+        img.src = canvas.toDataURL('image/png');
+        img.style.display = 'block';
+        status.style.display = 'none';
+                // 先把圖片準備成檔案，按「傳給家人」時才能立刻叫出分享選單
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        currentShareFile = new File([blob], `${currentShareData.recipe.name}.png`, { type: 'image/png' });
+
+        // 支援分享檔案就顯示按鈕，不支援（例如 LINE 內建瀏覽器）就顯示長按提示
+        if (navigator.canShare && navigator.canShare({ files: [currentShareFile] })) {
+            document.getElementById('share-send-btn').style.display = 'block';
+        } else {
+            document.getElementById('share-longpress-hint').style.display = 'block';
+        }
+    } catch (error) {
+        console.error('圖卡製作失敗:', error);
+        status.textContent = '圖卡製作失敗，請關閉後再試一次';
+    }
+}
+
+// 關閉預覽畫面，並清掉畫面外的圖卡
+function closeSharePreview() {
+    document.getElementById('share-preview').style.display = 'none';
+    document.getElementById('share-card-stage').innerHTML = '';
+}
+// 按「傳給家人」：叫出手機的分享選單
+async function sendShareImage() {
+    if (!currentShareFile) return;
+
+    // 之後嵌入 Unity App 時，在這裡判斷是否在 App 內，改成把圖片交給 App 分享
+
+    try {
+        await navigator.share({
+            files: [currentShareFile],
+            title: currentShareData.recipe.name
+        });
+    } catch (error) {
+        // 使用者自己取消分享時會出現 AbortError，不算錯誤
+        if (error.name !== 'AbortError') {
+            console.error('分享失敗:', error);
+            alert('分享沒有成功，可以改用長按圖片儲存後再傳送');
+        }
+    }
+}
 async function showDetails(id, name) {
     try {
         const recipe = allRecipes.find(r => r.id === id);
         const res = await fetch(`${API_URL}/recipes/${id}/steps`);
         const steps = await res.json();
+        currentShareData = { recipe, steps };
 
         // 渲染材料 HTML - 左名稱右數量排版
         const ingredientsHTML = recipe.ingredients ? recipe.ingredients.map((ing, idx) => {
@@ -370,6 +490,15 @@ async function showDetails(id, name) {
                     >${getRecipeNote(recipe.id)}</textarea>
                     <div class="note-saved-hint" id="note-saved-hint">已自動儲存在這台裝置</div>
                 </div>
+
+                <div class="share-section">
+                    <label class="share-note-option" id="share-note-option"
+                        style="${getRecipeNote(recipe.id).trim() ? '' : 'display:none;'}">
+                        <input type="checkbox" id="share-include-note" checked>
+                        一併分享我的筆記
+                    </label>
+                    <button class="share-btn" onclick="openSharePreview()">📤 分享這道食譜</button>
+                </div>
             </div>
         `;
 
@@ -388,7 +517,8 @@ function closeModal() {
         currentAudio = null;
     }
     document.getElementById('detail-modal').style.display = "none";
-    document.body.style.overflow = 'auto';
+    // 用空字串恢復 CSS 原本的設定，不要寫 'auto'，否則會蓋掉 body 鎖住捲動的樣式
+    document.body.style.overflow = '';
 }
 
 window.onclick = (event) => {

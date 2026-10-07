@@ -478,7 +478,228 @@ header h1 {
     color: var(--color-ink-soft);
     text-align: right;
 }
+/* ===== 分享區塊 ===== */
+.share-section {
+    margin-top: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
 
+.share-note-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 1.3rem;
+    color: var(--color-ink);
+    cursor: pointer;
+}
+
+.share-note-option input[type="checkbox"] {
+    width: 28px;
+    height: 28px;
+    accent-color: var(--color-sage);
+    cursor: pointer;
+}
+
+.share-btn {
+    width: 100%;
+    min-height: 60px;
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-ink);
+    background: var(--color-sage-soft);
+    border: 2px solid var(--color-sage);
+    border-radius: 16px;
+    cursor: pointer;
+}
+
+.share-btn:active {
+    background: var(--color-sage);
+    color: white;
+}
+/* 分享圖卡的暫時展示區 */
+/* 分享圖卡：放在畫面外，使用者看不到，但 html2canvas 截得到 */
+#share-card-stage {
+    position: fixed;
+    left: -9999px;
+    top: 0;
+}
+/* ===== 分享預覽畫面 ===== */
+.share-preview {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    flex-direction: column;
+    background: var(--color-cream);
+}
+
+.share-preview-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.share-preview-status {
+    margin-top: 40vh;
+    text-align: center;
+    font-size: 1.5rem;
+    color: var(--color-ink);
+}
+
+.share-preview-img {
+    display: none;
+    max-width: 100%;
+    margin: 0 auto;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(74, 52, 40, 0.2);
+}
+
+.share-preview-footer {
+    padding: 16px 20px calc(16px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--color-tan-line);
+    background: var(--color-cream);
+}
+
+.share-preview-close {
+    width: 100%;
+    min-height: 60px;
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-ink);
+    background: white;
+    border: 2px solid var(--color-border);
+    border-radius: 16px;
+    cursor: pointer;
+}
+.share-preview-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.share-send-btn {
+    display: none;
+    width: 100%;
+    min-height: 64px;
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: white;
+    background: var(--color-orange-dark);
+    border: none;
+    border-radius: 16px;
+    cursor: pointer;
+}
+
+.share-longpress-hint {
+    display: none;
+    margin: 0;
+    text-align: center;
+    font-size: 1.3rem;
+    color: var(--color-ink);
+}
+/* ===== 分享圖卡（固定 540px 寬，之後截成圖片） ===== */
+.share-card {
+    width: 540px;
+    margin: 20px auto;
+    background: var(--color-cream);
+    border-radius: 24px;
+    overflow: hidden;
+    font-family: 'Noto Sans TC', sans-serif;
+    color: var(--color-ink);
+}
+
+.card-hero-img {
+    height: 300px;
+    background-size: cover;
+    background-position: center;
+}
+
+.card-body {
+    padding: 28px 32px 24px;
+}
+
+.card-title {
+    margin: 0 0 20px;
+    font-size: 40px;
+    font-weight: 900;
+}
+
+.card-section-title {
+    margin: 24px 0 12px;
+    padding-left: 12px;
+    border-left: 6px solid var(--color-orange);
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--color-orange-dark);
+}
+
+.card-ingredients {
+    padding: 8px 20px;
+    background: var(--color-sage-soft);
+    border: 2px solid var(--color-sage);
+    border-radius: 16px;
+}
+
+.card-ing-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    font-size: 22px;
+    border-bottom: 1px solid var(--color-tan-line);
+}
+
+.card-ing-row:last-child {
+    border-bottom: none;
+}
+
+.card-step {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.card-step-num {
+    flex-shrink: 0;
+    width: 38px;
+    height: 38px;
+    line-height: 38px;
+    text-align: center;
+    border-radius: 50%;
+    background: var(--color-orange);
+    color: white;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.card-step p {
+    margin: 0;
+    font-size: 24px;
+    line-height: 1.6;
+}
+
+.card-note {
+    padding: 16px 20px;
+    background: var(--color-paper);
+    border: 2px dashed var(--color-border);
+    border-radius: 16px;
+    font-size: 22px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+
+.card-footer {
+    margin-top: 28px;
+    padding-top: 16px;
+    border-top: 1px solid var(--color-tan-line);
+    text-align: center;
+    font-size: 18px;
+    color: var(--color-ink-soft);
+}
 .modal-footer {
     padding: 50px 20px;
     display: flex;

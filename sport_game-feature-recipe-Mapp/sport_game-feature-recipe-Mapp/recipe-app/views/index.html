@@ -61,7 +61,24 @@
         </div>
     </div>
 
+        <!-- 分享圖卡（暫時顯示在畫面上確認版面，點一下關閉） -->
+        <!-- 分享圖卡：藏在畫面外，只用來截圖 -->
+    <div id="share-card-stage"></div>
+
+    <!-- 分享預覽畫面 -->
+    <div id="share-preview" class="share-preview">
+        <div class="share-preview-body">
+            <p id="share-preview-status" class="share-preview-status">圖卡製作中…</p>
+            <img id="share-preview-img" class="share-preview-img" alt="食譜圖卡">
+        </div>
+        <div class="share-preview-footer">
+                        <button id="share-send-btn" class="share-send-btn" onclick="sendShareImage()">➤ 分享</button>
+            <p id="share-longpress-hint" class="share-longpress-hint">長按上方的圖片，就可以儲存或分享</p>
+            <button class="share-preview-close" onclick="closeSharePreview()">關閉</button>
+        </div>
+    </div>
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="/static/script.js"></script>
 </body>
 </html>
