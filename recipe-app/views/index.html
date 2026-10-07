@@ -4,26 +4,50 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>銀髮族食譜 App</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
     <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/fruits.css">
 </head>
 <body>
     <header>
-        <h1>美味食譜</h1>
-        <div class="filter-bar">
-            <button class="filter-btn active" onclick="filterRecipes('all')">全部</button>
-            <button class="filter-btn" onclick="filterRecipes(1)">早餐</button>
-            <button class="filter-btn" onclick="filterRecipes(2)">午晚餐</button>
-            <button class="filter-btn" onclick="filterRecipes(3)">點心</button>
+        <div class="search-bar">
+            <div class="search-input-wrap">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="search-input" placeholder="搜尋食譜名稱或食材" oninput="handleSearch()">
+            </div>
         </div>
-        <div class="user-bar" id="user-bar"></div>
-        <a href="/shop" class="user-btn" style="margin-bottom:10px; display:inline-block;">🛒 商店</a>
+        <div class="filter-bar">
+    <div class="filter-row">
+        <button class="filter-btn active" onclick="filterRecipes('all')">全部</button>
+        <button class="filter-btn" onclick="filterRecipes(1)">早餐</button>
+        <button class="filter-btn" onclick="filterRecipes(2)">午晚餐</button>
+    </div>
+    <div class="filter-row">
+        <button class="filter-btn" onclick="filterRecipes(3)">點心</button>
+        <button class="filter-btn" onclick="filterRecipes(8)">水果</button>
+    </div>
+</div>
+
     </header>
 
     <main class="container">
-        <div class="swiper">
-            <div class="swiper-wrapper" id="recipe-wrapper"></div>
-            <div class="swiper-pagination"></div>
+        <!-- 一般食譜畫面 -->
+        <div id="recipe-view">
+            <div class="swiper recipe-swiper">
+                <div class="swiper-wrapper" id="recipe-wrapper"></div>
+                <div class="swiper-pagination"></div>
+            </div>
+        </div>
+
+        <!-- 水果季節畫面：點「水果」按鈕才會顯示 -->
+        <div id="fruit-view" style="display:none;">
+            <div class="season-tabs" id="season-tabs"></div>
+            <div class="swiper fruit-swiper">
+                <div class="swiper-wrapper" id="fruit-wrapper"></div>
+            </div>
         </div>
     </main>
 
@@ -37,7 +61,24 @@
         </div>
     </div>
 
+        <!-- 分享圖卡（暫時顯示在畫面上確認版面，點一下關閉） -->
+        <!-- 分享圖卡：藏在畫面外，只用來截圖 -->
+    <div id="share-card-stage"></div>
+
+    <!-- 分享預覽畫面 -->
+    <div id="share-preview" class="share-preview">
+        <div class="share-preview-body">
+            <p id="share-preview-status" class="share-preview-status">圖卡製作中…</p>
+            <img id="share-preview-img" class="share-preview-img" alt="食譜圖卡">
+        </div>
+        <div class="share-preview-footer">
+                        <button id="share-send-btn" class="share-send-btn" onclick="sendShareImage()">➤ 分享</button>
+            <p id="share-longpress-hint" class="share-longpress-hint">長按上方的圖片，就可以儲存或分享</p>
+            <button class="share-preview-close" onclick="closeSharePreview()">關閉</button>
+        </div>
+    </div>
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="/static/script.js"></script>
 </body>
 </html>

@@ -36,6 +36,8 @@ from fastapi.responses import FileResponse
 # 避免 database.py 或其他模組讀不到環境變數。
 load_dotenv()
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 
 # ============================================================
 # 2. 載入正式 Controllers
@@ -79,6 +81,15 @@ app.mount(
     "/static",
     StaticFiles(directory="views"),
     name="static"
+)
+
+# /games → 認知遊戲靜態網頁(腦力健康站，4款小遊戲)，從 GitHub Mind_games 分支合併進來。
+# Unity 這邊目前還沒有買支援跳轉 WebView 的套件，先把後端這條路接通，
+# 等套件買好以後，直接讓 Unity 開啟 {serverUrl}/games/index.html 即可。
+app.mount(
+    "/games",
+    StaticFiles(directory=os.path.join(BASE_DIR, "mind_games"), html=True),
+    name="mind_games"
 )
 
 

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>藍鳥在哪裡？</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css?v=17">
+  <style>
+    /* ── Trim the shared page's large bottom padding to give the scene more room ──
+       (only while actually playing, so the result screen's layout is untouched) ── */
+    .game-page:not(.showing-result) { padding-bottom: calc(8px + 1.5vh); }
+
+    /* ── Countdown number (smaller than the shared .stat-value default) ── */
+    #timer-value { font-size: 22px; }
+
+    /* ── Scene wrapper & container ── */
+    .bird-scene-wrap {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .bird-scene {
+      width: 100%;
+      aspect-ratio: 960 / 1705;
+      max-height: 100%;
+      position: relative;
+      border-radius: var(--r-lg);
+      overflow: hidden;
+      box-shadow: var(--sh-lg);
+      background: var(--c-bg2) url('../images/find-bird/scene-bg.jpg?v=2') center top / cover no-repeat;
+      cursor: default;
+    }
+
+    /* ── Animal sprites (bird + decoys) ── */
+    .animal-el {
+      position: absolute;
+      display: block;
+      height: auto;
+      cursor: pointer;
+      z-index: 10;
+      transform: translate(-50%, -50%);
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,.35));
+      transition: transform .12s;
+    }
+    .animal-el:hover { transform: translate(-50%, -50%) scale(1.15); }
+
+    .animal-el.appear { animation: animalAppear .32s ease-out; }
+    .animal-el.caught { animation: animalCaught .42s ease-out forwards; }
+    .animal-el.wrong-pick { animation: animalShake .38s ease-in-out; }
+
+    @keyframes animalAppear {
+      0%   { transform: translate(-50%,-50%) scale(.25); opacity: 0; }
+      65%  { transform: translate(-50%,-50%) scale(1.15); opacity: 1; }
+      100% { transform: translate(-50%,-50%) scale(1); }
+    }
+    @keyframes animalCaught {
+      0%   { transform: translate(-50%,-50%) scale(1) rotate(0deg); opacity:1; }
+      50%  { transform: translate(-50%,-50%) scale(1.5) rotate(25deg); opacity:1; }
+      100% { transform: translate(-50%,-50%) scale(.1) rotate(-20deg); opacity:0; }
+    }
+    @keyframes animalShake {
+      0%, 100% { transform: translate(-50%,-50%) rotate(0deg); }
+      25%      { transform: translate(-50%,-50%) rotate(-12deg); }
+      75%      { transform: translate(-50%,-50%) rotate(12deg); }
+    }
+
+    /* Sparkle effect injected by JS */
+    @keyframes sparkleOut {
+      0%   { transform: translate(-50%,-50%) scale(.5); opacity: 1; }
+      100% { transform: translate(-50%,-200%) scale(1.6); opacity: 0; }
+    }
+
+    /* Easy-mode glow on the target bird */
+    .animal-el.easy-glow { animation: easyGlow 1.2s ease-in-out infinite alternate; }
+    @keyframes easyGlow {
+      from { filter: drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
+      to   { filter: drop-shadow(0 0 14px #64B5F6) drop-shadow(0 2px 4px rgba(0,0,0,.3)); }
+    }
+
+    /* ── Finds dots ── */
+    .finds-bar { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+    .find-dot {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--c-border);
+      transition: background .25s, transform .25s;
+    }
+    .find-dot.found {
+      background: var(--c-green);
+      transform: scale(1.25);
+      animation: dotPop .3s ease;
+    }
+    @keyframes dotPop {
+      0%   { transform: scale(.4); }
+      65%  { transform: scale(1.5); }
+      100% { transform: scale(1.25); }
+    }
+
+    /* ── Hint text ── */
+    .hint-text {
+      text-align: center;
+      font-size: 15px;
+      color: var(--c-text-mid);
+      min-height: 0;
+    }
+
+    /* ── Time bar (countdown) ── */
+    .time-bar-track {
+      width: 100%;
+      max-width: 200px;
+      height: 10px;
+      margin: 16px auto 0;
+      border-radius: 999px;
+      background: var(--c-border);
+      overflow: hidden;
+    }
+    .time-bar-fill {
+      height: 100%;
+      width: 100%;
+      border-radius: 999px;
+      background: var(--c-green);
+      transform-origin: left center;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-page">
+    <div class="bg-deco deco-3">🌸</div>
+
+    <!-- ── Start Screen ── -->
+    <div id="start-screen" class="start-screen">
+      <h1 class="start-title">藍鳥在哪裡？</h1>
+      <p class="start-desc">
+        森林裡的小動物都跑出來了！<br>
+        在畫面中找出小藍鳥，點擊牠就算成功！
+      </p>
+      <div class="start-rules">
+        <h3>遊戲說明</h3>
+        <ul>
+          <li>畫面會隨機出現好幾隻小動物，仔細看清楚</li>
+          <li>找出小藍鳥並點擊得分，位置每次都會重新排列</li>
+          <li>總共要找到 5 隻小藍鳥，難度越高、時間越短</li>
+        </ul>
+      </div>
+      <div class="start-btns">
+        <div class="diff-options">
+          <button class="diff-btn diff-easy" id="btn-easy">
+            <span class="diff-name">簡單</span>
+            <span class="diff-hint">8 隻動物<br>時間較長</span>
+          </button>
+          <button class="diff-btn diff-normal" id="btn-normal">
+            <span class="diff-name">普通</span>
+            <span class="diff-hint">12 隻動物<br>時間適中</span>
+          </button>
+          <button class="diff-btn diff-hard" id="btn-hard">
+            <span class="diff-name">困難</span>
+            <span class="diff-hint">16 隻動物<br>時間最短</span>
+          </button>
+        </div>
+        <button class="btn btn-outline" onclick="location.href='../index.html'">← 回主選單</button>
+      </div>
+    </div>
+
+    <!-- ── Game Screen ── -->
+    <div id="game-screen" class="game-screen hidden">
+      <div class="game-header">
+        <button class="back-btn" onclick="location.href='../index.html'">← 返回</button>
+        <div class="game-title-bar">
+          <div class="game-name">藍鳥在哪裡？</div>
+          <div style="display:flex;justify-content:center;gap:8px;margin-top:4px">
+            <span class="diff-badge" id="diff-badge">普通</span>
+          </div>
+        </div>
+        <div class="stat-box" style="min-width:88px">
+          <span class="stat-label">⏱ 剩餘</span>
+          <span class="stat-value" id="timer-value">60</span>
+        </div>
+      </div>
+
+      <!-- Finds progress -->
+      <div style="padding:0 2px">
+        <p style="text-align:center;font-size:17px;color:var(--c-text-mid);margin-bottom:6px;font-weight:600">
+          找到了 <strong id="finds-count" style="color:var(--c-primary)">0</strong>
+          / <span id="finds-needed">5</span> 隻小藍鳥
+        </p>
+        <div class="finds-bar" id="finds-bar"></div>
+      </div>
+
+      <!-- Scene -->
+      <div class="bird-scene-wrap">
+        <div class="bird-scene" id="bird-scene"></div>
+      </div>
+
+      <!-- Time bar -->
+      <div class="time-bar-track">
+        <div class="time-bar-fill" id="time-bar-fill"></div>
+      </div>
+
+      <p class="hint-text" id="hint-text"></p>
+    </div>
+
+    <!-- ── Result Screen ── -->
+    <div id="result-screen" class="result-screen hidden">
+      <div class="result-card">
+        <p class="result-outcome" id="result-outcome">🏆 全部完成！</p>
+        <div class="result-stars">
+          <span class="result-star" id="star-1">⭐</span>
+          <span class="result-star" id="star-2">⭐</span>
+          <span class="result-star" id="star-3">⭐</span>
+        </div>
+        <div class="result-score-wrap">
+          <span class="result-score" id="result-score">0</span>
+          <span class="result-score-max">/ 1000 分</span>
+        </div>
+        <div class="result-breakdown">
+          <p class="breakdown-title">分數明細</p>
+          <div class="breakdown-row">
+            <span class="breakdown-label">✅ 完成分</span>
+            <span class="breakdown-pts" id="bd-completion">0 分</span>
+          </div>
+          <div class="breakdown-row">
+            <span class="breakdown-label">⚡ 速度分</span>
+            <span class="breakdown-pts" id="bd-speed">0 分</span>
+          </div>
+          <div class="breakdown-row">
+            <span class="breakdown-label">🎯 難度加成</span>
+            <span class="breakdown-pts" id="bd-difficulty">0 分</span>
+          </div>
+        </div>
+        <div class="result-btns">
+          <button class="btn btn-primary btn-lg" id="result-retry">🔁 再玩一次</button>
+          <button class="btn btn-outline" id="result-home">回主選單</button>
+        </div>
+      </div>
+      <p class="result-encourage" id="result-encourage"></p>
+    </div>
+  </div>
+
+  <script src="../js/find-bird.js?v=22"></script>
+</body>
+</html>

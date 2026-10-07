@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>埔里特產鯛魚燒</title>
+  <link rel="stylesheet" href="../css/style.css?v=17">
+  <style>
+    /* ── Mobile / Unity WebView overrides ── */
+    body { font-size: 16px; }
+
+    .game-page {
+      padding: calc(8px + 2vh) 8px calc(16px + 7vh);
+    }
+
+    .game-header { margin-bottom: 8px; gap: 8px; }
+
+    .back-btn    { padding: 6px 10px; font-size: 14px; min-height: 36px; }
+    .game-name   { font-size: 16px; }
+    .game-sub    { font-size: 13px; }
+
+    .stat-box    { padding: 5px 10px; min-width: 70px; }
+    .stat-label  { font-size: 11px; }
+    .stat-value  { font-size: 20px; }
+
+    .game-screen { gap: 8px; }
+
+    /* ── Stage Badge ── */
+    .stage-banner {
+      background: linear-gradient(90deg, #FF8C42, #FFD166);
+      color: white;
+      border-radius: var(--r-md);
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    /* ── Mold Container ── */
+    .mold-area {
+      background: var(--c-white);
+      border-radius: var(--r-lg);
+      padding: 10px 8px;
+      box-shadow: var(--sh-md);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+      min-height: 0;
+      justify-content: center;
+    }
+
+    .mold-title-row {
+      display: flex;
+      justify-content: space-around;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--c-text-mid);
+      flex-shrink: 0;
+    }
+    .mold-title-row span { text-align: center; }
+
+    /* Two panels + hinge wrapper */
+    .mold-panels {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Each panel fills 50% minus hinge */
+    .mold-panel {
+      flex: 1;
+      min-width: 0;
+    }
+    .mold-panel.left  { border-right: none; }
+    .mold-panel.right { border-left: none; }
+
+    /* Grid inside each panel */
+    .mold-grid { display: grid; gap: 5px; }
+
+    /* ── Mold Cell ── */
+    .mold-cell {
+      aspect-ratio: 1 / 1;
+      border-radius: 8px;
+      border: 2px solid #D4B896;
+      background: #F5ECD7;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: default;
+      user-select: none;
+      transition: background .2s, border-color .2s, transform .15s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .mold-panel.left  .mold-cell { pointer-events: none; }
+    .mold-panel.right .mold-cell { cursor: pointer; }
+    .mold-panel.right .mold-cell:hover { border-color: var(--c-primary); transform: scale(1.06); }
+
+    .cell-hint { font-size: 16px; opacity: .3; }
+
+    /* ── Cell image (custom art) ── */
+    .cell-img {
+      position: absolute;
+      inset: 2px;
+      width: calc(100% - 4px);
+      height: calc(100% - 4px);
+      object-fit: contain;
+      border-radius: 6px;
+      z-index: 1;
+    }
+    /* When image loads successfully, hide the emoji fallback */
+    .mold-cell.has-img .cell-emoji,
+    .mold-cell.has-img .cell-label,
+    .mold-cell.has-img .cell-hint { display: none; }
+
+    /* Filled states (colour fallback when no image) */
+    .mold-cell.batter {
+      background: linear-gradient(145deg, #FFE0A0, #FFC840);
+      border-color: #C8960A;
+    }
+    .mold-cell.passion {
+      background: linear-gradient(145deg, #FFE566, #FFBA00);
+      border-color: #C89000;
+    }
+    .mold-cell.bamboo {
+      background: linear-gradient(145deg, #AEEAAA, #6DC464);
+      border-color: #3D9437;
+    }
+    .mold-cell.mushroom {
+      background: linear-gradient(145deg, #D4B896, #A07850);
+      border-color: #6B4E28;
+    }
+
+    .mold-cell.correct { border-color: var(--c-success) !important; box-shadow: 0 0 0 3px rgba(91,175,66,.35); }
+    .mold-cell.wrong   { border-color: var(--c-error)   !important; box-shadow: 0 0 0 3px rgba(224,80,64,.35); }
+
+    .cell-emoji { font-size: clamp(14px, 3.5vw, 28px); line-height: 1; z-index: 0; }
+    .cell-label { font-size: 9px; font-weight: 700; margin-top: 1px; color: rgba(61,43,31,.75); text-align: center; line-height: 1.1; z-index: 0; }
+
+    /* ── Hinge / Fold Line ── */
+    .hinge {
+      width: 22px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      align-self: stretch;
+    }
+    .hinge::before {
+      content: '';
+      position: absolute;
+      top: 0; bottom: 0;
+      width: 4px;
+      background: linear-gradient(180deg, #C4956A 0%, #8B6340 50%, #C4956A 100%);
+      border-radius: 3px;
+    }
+
+    .fold-hint {
+      text-align: center;
+      font-size: 12px;
+      color: var(--c-text-lt);
+      font-style: italic;
+      flex-shrink: 0;
+    }
+
+    /* ── Filling Selection Panel ── */
+    .filling-panel {
+      background: var(--c-white);
+      border-radius: var(--r-lg);
+      padding: 10px 10px;
+      box-shadow: var(--sh-md);
+    }
+    .filling-panel-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--c-text-mid);
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .filling-panel.hidden-panel { display: none; }
+
+    .filling-buttons {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .filling-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      background: #F8F2EA;
+      border: 3px solid transparent;
+      border-radius: var(--r-md);
+      padding: 8px 10px;
+      cursor: pointer;
+      transition: var(--t);
+      min-width: 60px;
+      font-family: inherit;
+    }
+    .filling-btn:hover   { background: var(--c-bg2); border-color: var(--c-primary); transform: translateY(-2px); }
+    .filling-btn.selected {
+      border-color: var(--c-primary);
+      background: #FFF0E0;
+      transform: scale(1.08);
+      box-shadow: var(--sh-md);
+    }
+    .filling-btn-emoji { font-size: 28px; line-height: 1; }
+    .filling-btn-name  { font-size: 11px; font-weight: 700; color: var(--c-text); text-align: center; line-height: 1.3; }
+
+    /* Batter-first hint badge on filling buttons when batter not placed */
+    .filling-btn[data-filling="batter"] .filling-btn-name::after {
+      content: ' 先鋪';
+      color: var(--c-primary);
+      font-size: 10px;
+    }
+    .filling-btn.selected[data-filling="batter"] .filling-btn-name::after { content: ''; }
+
+    /* ── Action Row ── */
+    .action-row {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    /* Override global btn sizes for compact mobile */
+    .action-row .btn    { padding: 10px 20px; font-size: 16px; min-height: 44px; min-width: 90px; }
+    .action-row .btn-lg { padding: 12px 28px; font-size: 18px; }
+
+    /* ── Toast ── */
+    .toast {
+      position: absolute;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%) translateY(10px);
+      background: rgba(61,43,31,.88);
+      color: #fff;
+      padding: 10px 22px;
+      border-radius: 30px;
+      font-size: 15px;
+      font-weight: 700;
+      pointer-events: none;
+      z-index: 300;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity .25s, transform .25s;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <div class="game-page">
+
+    <!-- ── Start Screen ── -->
+    <div id="start-screen" class="start-screen">
+      <h1 class="start-title">埔里特產鯛魚燒</h1>
+      <p class="start-desc">
+        觀察左側烤盤的圖案，<br>
+        在右側烤盤填出「鏡像對稱」的位置！
+      </p>
+      <div class="start-rules">
+        <h3>遊戲說明</h3>
+        <ul>
+          <li>在右側烤盤做出與左側對稱重疊的圖案。</li>
+          <li>務必先鋪好麵糊，才能加入特產餡料。</li>
+          <li>共 6 題難度遞增，挑戰你的最快完成時間！</li>
+        </ul>
+      </div>
+      <div class="start-btns">
+        <div class="diff-options">
+          <button class="diff-btn diff-easy" id="btn-easy">
+            <span class="diff-name">簡單</span>
+            <span class="diff-hint">2 道題目<br>麵糊對稱</span>
+          </button>
+          <button class="diff-btn diff-normal" id="btn-normal">
+            <span class="diff-name">普通</span>
+            <span class="diff-hint">6 道題目<br>三個階段</span>
+          </button>
+          <button class="diff-btn diff-hard" id="btn-hard">
+            <span class="diff-name">困難</span>
+            <span class="diff-hint">6 道題目<br>限時 90 秒</span>
+          </button>
+        </div>
+        <button class="btn btn-outline" onclick="location.href='../index.html'">← 回主選單</button>
+      </div>
+    </div>
+
+    <!-- ── Game Screen ── -->
+    <div id="game-screen" class="game-screen hidden">
+      <div class="game-header">
+        <button class="back-btn" onclick="location.href='../index.html'">← 返回</button>
+        <div class="game-title-bar">
+          <div class="game-name">埔里特產鯛魚燒</div>
+          <div style="display:flex;justify-content:center;gap:8px;margin-top:4px;align-items:center">
+            <div class="game-sub" id="q-label">第 1 題 / 共 6 題</div>
+            <span class="diff-badge" id="diff-badge">普通</span>
+          </div>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label" id="timer-label">⏱ 計時</span>
+          <span class="stat-value" id="timer-value">0:00</span>
+        </div>
+      </div>
+
+      <!-- Stage banner -->
+      <div class="stage-banner" id="stage-banner">第一階段：麵糊對稱</div>
+
+      <!-- Mold Area -->
+      <div class="mold-area">
+        <div class="mold-title-row">
+          <span>左側烤盤</span>
+          <span style="visibility:hidden">h</span>
+          <span>右側烤盤</span>
+        </div>
+
+        <div class="mold-panels">
+          <div class="mold-panel left">
+            <div class="mold-grid" id="left-grid"></div>
+          </div>
+          <div class="hinge"></div>
+          <div class="mold-panel right">
+            <div class="mold-grid" id="right-grid"></div>
+          </div>
+        </div>
+
+        <p class="fold-hint">💡 想像把烤盤對折，左右圖案完全重合</p>
+      </div>
+
+      <!-- Filling Selection (Stage 2 & 3 only) -->
+      <div class="filling-panel hidden-panel" id="filling-panel">
+        <p class="filling-panel-title">🍡 選擇材料（先鋪麵糊，再加餡料）</p>
+        <div class="filling-buttons" id="filling-buttons"></div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="action-row">
+        <button id="reset-btn" class="btn btn-outline btn-sm">🗑 清除</button>
+        <button id="confirm-btn" class="btn btn-primary">✔ 確認提交</button>
+      </div>
+    </div>
+
+    <!-- ── Result Screen ── -->
+    <div id="result-screen" class="result-screen hidden">
+      <div class="result-card">
+        <p class="result-outcome" id="result-outcome">🏆 全部完成！</p>
+        <div class="result-stars">
+          <span class="result-star" id="star-1">⭐</span>
+          <span class="result-star" id="star-2">⭐</span>
+          <span class="result-star" id="star-3">⭐</span>
+        </div>
+        <div class="result-score-wrap">
+          <span class="result-score" id="result-score">0</span>
+          <span class="result-score-max">/ 1000 分</span>
+        </div>
+        <div class="result-breakdown">
+          <p class="breakdown-title">分數明細</p>
+          <div class="breakdown-row">
+            <span class="breakdown-label">✅ 完成分</span>
+            <span class="breakdown-pts" id="bd-completion">0 分</span>
+          </div>
+          <div class="breakdown-row">
+            <span class="breakdown-label">⚡ 速度分</span>
+            <span class="breakdown-pts" id="bd-speed">0 分</span>
+          </div>
+          <div class="breakdown-row">
+            <span class="breakdown-label">🎯 難度加成</span>
+            <span class="breakdown-pts" id="bd-difficulty">0 分</span>
+          </div>
+        </div>
+        <div class="result-btns">
+          <button class="btn btn-primary btn-lg" id="result-retry">🔁 再玩一次</button>
+          <button class="btn btn-outline" id="result-home">回主選單</button>
+        </div>
+      </div>
+      <p class="result-encourage" id="result-encourage"></p>
+    </div>
+
+    <!-- ── Dialog ── -->
+    <div id="dialog-overlay" class="dialog-overlay hidden">
+      <div class="dialog-box">
+        <div class="dialog-emoji" id="dialog-emoji">🎊</div>
+        <h2 class="dialog-title" id="dialog-title">標題</h2>
+        <p class="dialog-msg" id="dialog-msg">訊息</p>
+        <div class="dialog-btns" id="dialog-btns"></div>
+      </div>
+    </div>
+
+    <!-- ── Toast ── -->
+    <div id="toast-msg" class="toast"></div>
+  </div>
+
+  <script src="../js/taiyaki.js?v=3"></script>
+</body>
+</html>

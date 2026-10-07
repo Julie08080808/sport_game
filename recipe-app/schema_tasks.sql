@@ -44,6 +44,10 @@ CREATE TABLE IF NOT EXISTS npcs (
     npc_name VARCHAR(50) NOT NULL,
     description TEXT,
     image_key VARCHAR(50),
+    -- 這個 NPC 屬於哪個運動場景類別：hand | leg | full_body | NULL(非運動類 NPC，例如商店/活動中心)。
+    -- 決定「這個 NPC 只會發哪類任務」+「玩家做完準備流程後要跳轉哪個 Exercise Scene」，
+    -- 兩件事都直接由 NPC 決定，不看任務本身的 exercise_type 字串，避免每加一種新動作就要回來改 Unity 程式碼。
+    exercise_scene_key VARCHAR(30),
     is_active BOOLEAN NOT NULL DEFAULT TRUE
 );
 
@@ -166,9 +170,16 @@ CREATE TABLE IF NOT EXISTS user_task_test_replays (
 -- 9. 示範資料：把原本 npc_dialogues 時代的「小兔子」+ 手/腳/壓力球 三個任務
 --    搬到新架構，才能實際測試「點 NPC -> 領任務 -> 感測器類型」這條路
 -- ============================================================
-INSERT INTO npcs (npc_key, scene_id, npc_name, description, image_key, is_active)
-SELECT 'rabbit', 0, '小兔子', '住在農場旁邊，會找玩家一起做運動的小兔子。', 'rabbit_avatar', TRUE
+INSERT INTO npcs (npc_key, scene_id, npc_name, description, image_key, exercise_scene_key, is_active)
+SELECT 'rabbit', 0, '小兔子', '住在農場旁邊，會找玩家一起做運動的小兔子。', 'rabbit_avatar', 'hand', TRUE
 WHERE NOT EXISTS (SELECT 1 FROM npcs WHERE npc_key = 'rabbit');
+
+UPDATE npcs SET exercise_scene_key = 'hand' WHERE npc_key = 'rabbit' AND exercise_scene_key IS NULL;
+
+-- 分類規則：只要任務用到壓力球感測器，這個 NPC 一律歸類為 ball(不看是手部還是腳部動作)。
+-- 目前 ball 類別實際玩的畫面沿用既有的 ExerciseHandScene(見 ExerciseSceneRouter.ResolveSceneName)，
+-- 之後如果真的做出「操控球體」的專屬玩法，再讓 ball 改指向新場景即可，這裡的資料不用動。
+UPDATE npcs SET exercise_scene_key = 'ball' WHERE npc_key = 'FARM_MITU';
 
 INSERT INTO tasks (
     task_key, task_name, task_description, task_category, task_type, task_mode,
@@ -224,3 +235,64 @@ JOIN (VALUES
 WHERE NOT EXISTS (
     SELECT 1 FROM task_story_steps s WHERE s.task_id = t.task_id AND s.story_variant = 'A'
 );
+
+-- ============================================================
+-- 10. 姜太喵(池塘, hand 類別) / 山林猴(森林, leg 類別)
+--     兩個 NPC 各配一個 imu_required 任務，讓「多 NPC 各自對應獨立場景」這件事有真實資料可以測試。
+--     注意：這兩個任務目前只能接到、無法真正玩完，因為 PhoneIMUProvider 跟 leg 場景都還沒做出來。
+-- ============================================================
+INSERT INTO npcs (npc_key, scene_id, npc_name, description, image_key, exercise_scene_key, is_active)
+SELECT 'POND_JIANGTAIMIAO', 1, '姜太喵', '在池塘邊釣魚的貓咪，會邀請玩家一起做手部甩動運動。', 'jiangtaimiao_avatar', 'hand', TRUE
+WHERE NOT EXISTS (SELECT 1 FROM npcs WHERE npc_key = 'POND_JIANGTAIMIAO');
+
+INSERT INTO tasks (
+    task_key, task_name, task_description, task_category, task_type, task_mode,
+    scene_id, exercise_type, goal_type, target_count, input_requirement, required_ball_count,
+    recurrence_type, reward_player_exp, reward_scene_exp, reward_money,
+    is_initial_unlock, is_active
+)
+SELECT 'POND_ARM_RAISE', '陪姜太喵甩竿練習', '拿著手機模擬甩竿動作，鍛鍊手臂力量。', 'commission', 'persistent', 'basic',
+    1, 'ArmRaise', 'count', 10, 'imu_required', 0,
+    'daily', 100, 1, 50,
+    TRUE, TRUE
+WHERE NOT EXISTS (SELECT 1 FROM tasks WHERE task_key = 'POND_ARM_RAISE');
+
+INSERT INTO npc_task_assignments (npc_id, task_id, priority, weight, is_active)
+SELECT n.npc_id, t.task_id, 100, 1, TRUE
+FROM npcs n, tasks t
+WHERE n.npc_key = 'POND_JIANGTAIMIAO' AND t.task_key = 'POND_ARM_RAISE'
+ON CONFLICT (npc_id, task_id) DO NOTHING;
+
+INSERT INTO task_story_steps (task_id, story_variant, story_phase, step_order, dialogue_text)
+SELECT t.task_id, 'A', 'offer', 1, '要不要陪我一起甩甩手，練習釣魚的臂力呀？'
+FROM tasks t
+WHERE t.task_key = 'POND_ARM_RAISE'
+  AND NOT EXISTS (SELECT 1 FROM task_story_steps s WHERE s.task_id = t.task_id AND s.story_variant = 'A');
+
+INSERT INTO npcs (npc_key, scene_id, npc_name, description, image_key, exercise_scene_key, is_active)
+SELECT 'FOREST_SHANLINHOU', 2, '山林猴', '住在森林裡的猴子，喜歡找玩家一起活動腿部。', 'shanlinhou_avatar', 'leg', TRUE
+WHERE NOT EXISTS (SELECT 1 FROM npcs WHERE npc_key = 'FOREST_SHANLINHOU');
+
+INSERT INTO tasks (
+    task_key, task_name, task_description, task_category, task_type, task_mode,
+    scene_id, exercise_type, goal_type, target_count, input_requirement, required_ball_count,
+    recurrence_type, reward_player_exp, reward_scene_exp, reward_money,
+    is_initial_unlock, is_active
+)
+SELECT 'FOREST_LEG_RAISE', '陪山林猴抬腿健走', '把手機放在口袋或綁在腿上，模擬抬腿走路動作。', 'commission', 'persistent', 'basic',
+    2, 'LegRaise', 'count', 10, 'imu_required', 0,
+    'daily', 100, 1, 50,
+    TRUE, TRUE
+WHERE NOT EXISTS (SELECT 1 FROM tasks WHERE task_key = 'FOREST_LEG_RAISE');
+
+INSERT INTO npc_task_assignments (npc_id, task_id, priority, weight, is_active)
+SELECT n.npc_id, t.task_id, 100, 1, TRUE
+FROM npcs n, tasks t
+WHERE n.npc_key = 'FOREST_SHANLINHOU' AND t.task_key = 'FOREST_LEG_RAISE'
+ON CONFLICT (npc_id, task_id) DO NOTHING;
+
+INSERT INTO task_story_steps (task_id, story_variant, story_phase, step_order, dialogue_text)
+SELECT t.task_id, 'A', 'offer', 1, '要不要陪我在森林小徑上抬腿走一走，活動活動腿呀？'
+FROM tasks t
+WHERE t.task_key = 'FOREST_LEG_RAISE'
+  AND NOT EXISTS (SELECT 1 FROM task_story_steps s WHERE s.task_id = t.task_id AND s.story_variant = 'A');

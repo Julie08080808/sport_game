@@ -268,7 +268,8 @@ def get_npc_task_offer(user_id: int, npc_key: str):
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
                 """
-                SELECT npc_id, npc_key, scene_id, npc_name, description, image_key
+                SELECT npc_id, npc_key, scene_id, npc_name, description, image_key,
+                       exercise_scene_key
                 FROM npcs
                 WHERE npc_key = %s
                   AND is_active = TRUE;
@@ -388,6 +389,9 @@ def get_npc_task_offer(user_id: int, npc_key: str):
                 "npc_name": npc["npc_name"],
                 "npc_image_key": npc.get("image_key"),
                 "scene_id": task["scene_id"],
+                # 場景路由看 NPC 自己的類別，不是看任務的 exercise_type，
+                # 這樣同一個 NPC 以後不管加幾種動作，都保證進同一個 Exercise Scene。
+                "exercise_scene_key": npc.get("exercise_scene_key"),
                 "dialogue_text": dialogue_text,
                 "story_variant": story_variant,
                 "task_id": task["task_id"],
@@ -452,6 +456,7 @@ def accept_or_decline_task(
                     n.npc_name,
                     n.npc_key,
                     n.scene_id AS npc_scene_id,
+                    n.exercise_scene_key,
                     us.player_level
                 FROM npc_task_assignments a
                 JOIN npcs n
@@ -526,6 +531,7 @@ def accept_or_decline_task(
                     "task_name": task["task_name"],
                     "scene_id": task["scene_id"],
                     "exercise_type": task["exercise_type"],
+                    "exercise_scene_key": task["exercise_scene_key"],
                     "goal_type": task["goal_type"],
                     "target_count": existing["target_count"],
                     "target_seconds": existing["target_seconds"],
@@ -641,6 +647,7 @@ def accept_or_decline_task(
                 "task_name": task["task_name"],
                 "scene_id": task["scene_id"],
                 "exercise_type": task["exercise_type"],
+                "exercise_scene_key": task["exercise_scene_key"],
                 "goal_type": task["goal_type"],
                 "target_count": task.get("target_count"),
                 "target_seconds": task.get("target_seconds"),
@@ -686,6 +693,7 @@ def complete_task(user_id: int, task_progress_id: int):
                 SELECT
                     p.progress_id,
                     p.status,
+                    p.source_type,
                     t.task_id,
                     t.task_name,
                     t.scene_id,
@@ -714,9 +722,17 @@ def complete_task(user_id: int, task_progress_id: int):
                     "message": f"這筆任務目前狀態是「{progress['status']}」，無法完成",
                 }
 
-            reward_player_exp = progress["reward_player_exp"] or 0
-            reward_scene_exp = progress["reward_scene_exp"] or 0
-            reward_money = progress["reward_money"] or 0
+            # 自主運動(老山狐/活動中心)：玩家經驗值、金幣減半，
+            # 不給景點經驗值、不計入建築外觀升級次數(completion_count 完全不動)。
+            is_self_training = progress["source_type"] == "self_training"
+
+            reward_player_exp = (progress["reward_player_exp"] or 0)
+            reward_money = (progress["reward_money"] or 0)
+            reward_scene_exp = 0 if is_self_training else (progress["reward_scene_exp"] or 0)
+
+            if is_self_training:
+                reward_player_exp //= 2
+                reward_money //= 2
 
             cur.execute(
                 """
@@ -731,32 +747,46 @@ def complete_task(user_id: int, task_progress_id: int):
             )
             player_stats = cur.fetchone()
 
-            cur.execute(
-                """
-                UPDATE user_scenes
-                SET scene_exp = scene_exp + %s,
-                    completion_count = CASE
-                        WHEN completion_count + 1 >= 20 THEN completion_count + 1 - 20
-                        ELSE completion_count + 1
-                    END,
-                    scene_level = scene_level + CASE
-                        WHEN completion_count + 1 >= 20 THEN 1
-                        ELSE 0
-                    END,
-                    -- 場景升級的當下，把玩家先前手動調回舊外觀的選擇清掉，
-                    -- 讓新解鎖的階段重新變成預設顯示(玩家之後可以再手動調回去)。
-                    display_level_cap = CASE
-                        WHEN completion_count + 1 >= 20 THEN NULL
-                        ELSE display_level_cap
-                    END
-                WHERE user_id = %s
-                  AND scene_id = %s
-                RETURNING scene_level, scene_exp, completion_count, display_level_cap,
-                    (completion_count = 0) AS leveled_up;
-                """,
-                (reward_scene_exp, user_id, progress["scene_id"]),
-            )
-            scene_stats = cur.fetchone()
+            if is_self_training:
+                # 自主運動完全不動景點進度/建築外觀升級次數，單純讀現況回傳給 Unity。
+                cur.execute(
+                    """
+                    SELECT scene_level, scene_exp, completion_count, display_level_cap
+                    FROM user_scenes
+                    WHERE user_id = %s
+                      AND scene_id = %s;
+                    """,
+                    (user_id, progress["scene_id"]),
+                )
+                scene_stats = cur.fetchone()
+                scene_stats["leveled_up"] = False
+            else:
+                cur.execute(
+                    """
+                    UPDATE user_scenes
+                    SET scene_exp = scene_exp + %s,
+                        completion_count = CASE
+                            WHEN completion_count + 1 >= 20 THEN completion_count + 1 - 20
+                            ELSE completion_count + 1
+                        END,
+                        scene_level = scene_level + CASE
+                            WHEN completion_count + 1 >= 20 THEN 1
+                            ELSE 0
+                        END,
+                        -- 場景升級的當下，把玩家先前手動調回舊外觀的選擇清掉，
+                        -- 讓新解鎖的階段重新變成預設顯示(玩家之後可以再手動調回去)。
+                        display_level_cap = CASE
+                            WHEN completion_count + 1 >= 20 THEN NULL
+                            ELSE display_level_cap
+                        END
+                    WHERE user_id = %s
+                      AND scene_id = %s
+                    RETURNING scene_level, scene_exp, completion_count, display_level_cap,
+                        (completion_count = 0) AS leveled_up;
+                    """,
+                    (reward_scene_exp, user_id, progress["scene_id"]),
+                )
+                scene_stats = cur.fetchone()
 
             cur.execute(
                 """
@@ -798,6 +828,210 @@ def complete_task(user_id: int, task_progress_id: int):
         return {
             "success": False,
             "message": f"完成任務失敗: {e}",
+        }
+    finally:
+        conn.close()
+
+
+# ============================================================
+# 自主運動(老山狐 / 活動中心)：
+# 玩家可以自由挑選任何已解鎖的運動任務來練習，不綁定特定 NPC、不限次數，
+# 但完成獎勵的玩家經驗值/金幣減半、不給景點經驗值、不計入建築外觀升級次數。
+# 跟故事任務(npc_task_assignments 綁 NPC)是分開的兩條路，不會互相佔用每日/每週次數限制。
+# ============================================================
+
+def get_self_training_exercises(user_id: int):
+    """
+    回傳玩家目前所有已解鎖、而且掛在「有效運動類別 NPC」底下的任務，
+    不分是哪個 NPC 發的，老山狐這裡全部混在一起給玩家自由選。
+    """
+    conn = get_db_conn()
+
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT DISTINCT ON (t.task_id)
+                    t.task_id,
+                    t.task_key,
+                    t.task_name,
+                    t.task_description,
+                    t.exercise_type,
+                    t.goal_type,
+                    t.target_count,
+                    t.target_seconds,
+                    t.input_requirement,
+                    t.required_ball_count,
+                    t.reward_player_exp,
+                    t.reward_scene_exp,
+                    t.reward_money,
+                    t.scene_id,
+                    n.exercise_scene_key
+                FROM tasks t
+                JOIN user_task_unlocks u
+                  ON u.task_id = t.task_id
+                 AND u.user_id = %s
+                JOIN npc_task_assignments a
+                  ON a.task_id = t.task_id
+                 AND a.is_active = TRUE
+                JOIN npcs n
+                  ON n.npc_id = a.npc_id
+                 AND n.is_active = TRUE
+                WHERE t.is_active = TRUE
+                  AND t.exercise_type IS NOT NULL
+                  AND n.exercise_scene_key IS NOT NULL
+                ORDER BY t.task_id;
+                """,
+                (user_id,),
+            )
+            rows = cur.fetchall()
+
+            exercises = []
+            for row in rows:
+                exercises.append({
+                    "task_id": row["task_id"],
+                    "task_key": row["task_key"],
+                    "task_name": row["task_name"],
+                    "task_description": row.get("task_description"),
+                    "exercise_type": row["exercise_type"],
+                    "exercise_scene_key": row["exercise_scene_key"],
+                    "goal_type": row["goal_type"],
+                    "target_count": row.get("target_count"),
+                    "target_seconds": row.get("target_seconds"),
+                    "input_requirement": row.get("input_requirement"),
+                    "required_ball_count": row.get("required_ball_count") or 0,
+                    # 自主運動的實際獎勵是原任務的一半，先算好給 Unity 顯示用，
+                    # 真正發獎勵時 complete_task 會用同樣的規則重算一次(不信任前端)。
+                    "reward_player_exp": (row.get("reward_player_exp") or 0) // 2,
+                    "reward_scene_exp": 0,
+                    "reward_money": (row.get("reward_money") or 0) // 2,
+                })
+
+            return {
+                "success": True,
+                "exercises": exercises,
+            }
+
+    except Exception as e:
+        print(f"[NPC Model Error] 取得自主運動清單失敗: {e}")
+        return {
+            "success": False,
+            "message": f"取得自主運動清單失敗: {e}",
+        }
+    finally:
+        conn.close()
+
+
+def start_self_training(user_id: int, task_id: int):
+    """
+    開始一次自主運動：不檢查每日/每週次數限制(那是故事任務的規則)，
+    每次呼叫都直接建立一筆新的 progress，掛 source_type='self_training'。
+    """
+    conn = get_db_conn()
+
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT t.task_id, t.task_key, t.task_name, t.scene_id,
+                       t.exercise_type, t.goal_type, t.target_count, t.target_seconds,
+                       t.input_requirement, t.required_ball_count,
+                       t.reward_player_exp, t.reward_scene_exp, t.reward_money,
+                       n.npc_id AS fox_npc_id, n.exercise_scene_key
+                FROM tasks t
+                JOIN user_task_unlocks u
+                  ON u.task_id = t.task_id
+                 AND u.user_id = %s
+                JOIN npc_task_assignments a
+                  ON a.task_id = t.task_id
+                 AND a.is_active = TRUE
+                JOIN npcs n
+                  ON n.npc_id = a.npc_id
+                 AND n.is_active = TRUE
+                JOIN npcs fox
+                  ON fox.npc_key = 'ACTIVITY_LAOSHANHU'
+                WHERE t.task_id = %s
+                  AND t.is_active = TRUE
+                  AND t.exercise_type IS NOT NULL
+                  AND n.exercise_scene_key IS NOT NULL
+                LIMIT 1;
+                """,
+                (user_id, task_id),
+            )
+            task = cur.fetchone()
+
+            if not task:
+                return {
+                    "success": False,
+                    "message": "這個運動不存在、尚未解鎖，或目前不能自主練習",
+                }
+
+            cur.execute(
+                """
+                SELECT npc_id FROM npcs WHERE npc_key = 'ACTIVITY_LAOSHANHU';
+                """
+            )
+            fox = cur.fetchone()
+
+            cur.execute(
+                """
+                INSERT INTO user_task_progress (
+                    user_id, task_id, daily_task_id,
+                    source_type, source_npc_id,
+                    status, progress_count, target_count,
+                    progress_seconds, target_seconds,
+                    accepted_at, created_at, updated_at
+                )
+                VALUES (
+                    %s, %s, NULL,
+                    'self_training', %s,
+                    'accepted', 0, %s,
+                    0, %s,
+                    CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                )
+                RETURNING progress_id;
+                """,
+                (
+                    user_id,
+                    task_id,
+                    fox["npc_id"] if fox else None,
+                    task.get("target_count"),
+                    task.get("target_seconds"),
+                ),
+            )
+            progress = cur.fetchone()
+
+            conn.commit()
+
+            return {
+                "success": True,
+                "status": "accepted",
+                "resumed": False,
+                "task_progress_id": progress["progress_id"],
+                "task_id": task["task_id"],
+                "task_key": task["task_key"],
+                "task_name": task["task_name"],
+                "scene_id": task["scene_id"],
+                "exercise_type": task["exercise_type"],
+                "exercise_scene_key": task["exercise_scene_key"],
+                "goal_type": task["goal_type"],
+                "target_count": task.get("target_count"),
+                "target_seconds": task.get("target_seconds"),
+                "input_requirement": task.get("input_requirement"),
+                "required_ball_count": task.get("required_ball_count") or 0,
+                "story_variant": "A",
+                # 這裡先回傳半額給 Unity 顯示「預期獎勵」，實際發獎一樣由 complete_task 認定。
+                "reward_player_exp": (task.get("reward_player_exp") or 0) // 2,
+                "reward_scene_exp": 0,
+                "reward_money": (task.get("reward_money") or 0) // 2,
+            }
+
+    except Exception as e:
+        conn.rollback()
+        print(f"[NPC Model Error] 開始自主運動失敗: {e}")
+        return {
+            "success": False,
+            "message": f"開始自主運動失敗: {e}",
         }
     finally:
         conn.close()

@@ -21,3 +21,9 @@ def get_recipe_steps(recipe_id: int):
     if not steps:
         raise HTTPException(status_code=404, detail="找不到步驟")
     return steps
+
+
+@router.get("/fruits/by-season")
+def get_fruits_by_season():
+    """依季節取得水果清單(含份量),供前端水果頁使用。"""
+    return recipe_model.fetch_fruits_by_season()

@@ -76,3 +76,31 @@ def complete_task(
             status_code=400, detail=result.get("message", "完成任務失敗"))
 
     return result
+
+
+@router.get("/self_training/exercises")
+def get_self_training_exercises(user_id: int):
+    result = npc_model.get_self_training_exercises(user_id=user_id)
+
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=400, detail=result.get("message", "取得自主運動清單失敗"))
+
+    return result
+
+
+@router.post("/self_training/start")
+def start_self_training(
+    user_id: int = Form(...),
+    task_id: int = Form(...),
+):
+    result = npc_model.start_self_training(
+        user_id=user_id,
+        task_id=task_id,
+    )
+
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=400, detail=result.get("message", "開始自主運動失敗"))
+
+    return result
