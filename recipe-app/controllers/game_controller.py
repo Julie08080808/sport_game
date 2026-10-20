@@ -1,66 +1,72 @@
+from uuid import UUID
+import logging
 from fastapi import APIRouter, HTTPException, Form
-from pydantic import BaseModel
-from models import game_model, user_model
+from pydantic import BaseModel, Field
+from models import game_model
+from services.exercise_rules import RuleError
+router = APIRouter(prefix='/api/game', tags=['Game Mechanics'])
+log = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/game", tags=["Game Mechanics"])
+
+def _call(fn, *args, **kwargs):
+    try:
+        return fn(*args, **kwargs)
+    except (RuleError, ValueError) as e:
+        raise HTTPException(409, detail=str(e)) from e
+    except Exception as e:
+        log.exception('Game request failed')
+        raise HTTPException(503, detail='暫時無法處理，請使用相同請求 ID 重試') from e
 
 
 class ExpUpdateReq(BaseModel):
     user_id: int
-    building_type: int  # 0:農場, 1:池塘, 2:森林, 3:中心
+    building_type: int
     base_exp: int
 
 
-@router.post("/complete_task")
+@router.post('/complete_task')
 def complete_task(req: ExpUpdateReq):
-    result = game_model.process_task_completion(
-        req.user_id, req.building_type, req.base_exp)
-
-    if not result:
-        raise HTTPException(status_code=500, detail="經驗值同步失敗，請檢查資料庫連線")
-
-    return {
-        "status": "success",
-        "player": {
-            "level": result["user"][0],
-            "exp": result["user"][1],
-            "money": result["user"][2]
-        },
-        "building": {
-            "level": result["building"][0],
-            "exp": result["building"][1]
-        }
-    }
+    raise HTTPException(410, detail='請使用 Session 同步')
 
 
-@router.post("/sync_exp")
+@router.post('/sync_exp')
 def sync_exp(user_id: int = Form(...), building_type: int = Form(...), exp_amount: int = Form(...)):
-    res = user_model.update_game_exp(user_id, building_type, exp_amount)
-    if not res:
-        raise HTTPException(status_code=400, detail="同步失敗")
-    return res
+    raise HTTPException(410, detail='請使用 Session 同步')
 
 
-@router.get("/scenes/{user_id}")
+@router.get('/scenes/{user_id}')
 def get_scenes(user_id: int):
-    """
-    Unity 進 MainMap 時呼叫，一次拿回 5 個場景目前的等級/完成次數/外觀顯示覆寫，
-    用來同步每棟建築(Farm/Pond/Forest/Center/Store)該顯示哪一階外觀。
-    """
-    return {"success": True, "scenes": game_model.get_all_scene_status(user_id)}
+    return dict(success=True, scenes=_call(game_model.get_all_scene_status, user_id))
 
 
-@router.post("/scene/display_level")
-def set_scene_display_level(
-    user_id: int = Form(...),
-    scene_id: int = Form(...),
-    display_level: int = Form(...),
-):
-    """
-    玩家手動把某個場景的建築外觀調到指定等級(不能超過該場景目前的 scene_level)。
-    display_level 傳 -1 代表清除覆寫，改回自動顯示最新已解鎖階段。
-    """
-    result = game_model.set_scene_display_level(user_id, scene_id, display_level)
-    if not result.get("success"):
-        raise HTTPException(status_code=400, detail=result.get("message", "設定失敗"))
-    return result
+class UpgradeRequest(BaseModel):
+    user_id: int = Field(gt=0)
+    scene_id: int = Field(gt=0)
+    target_level: int = Field(ge=2)
+    request_id: UUID
+
+
+@router.post('/scene/upgrade')
+def upgrade(req: UpgradeRequest):
+    return _call(game_model.purchase_scene_level, **req.model_dump())
+
+
+@router.post('/scene/display_level')
+def display(user_id: int = Form(...), scene_id: int = Form(...), display_level: int = Form(...)):
+    return _call(game_model.set_scene_display_level, user_id, scene_id, display_level)
+
+
+@router.get('/scene/{scene_id}/appearances')
+def appearances(scene_id: int, user_id: int):
+    return dict(success=True, appearances=_call(game_model.get_appearances, user_id, scene_id))
+
+
+class AppearanceRequest(BaseModel):
+    user_id: int = Field(gt=0)
+    scene_id: int = Field(gt=0)
+    appearance_stage_id: int = Field(gt=0)
+
+
+@router.post('/scene/appearance')
+def appearance(req: AppearanceRequest):
+    return _call(game_model.select_appearance, **req.model_dump())

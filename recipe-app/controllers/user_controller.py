@@ -3,9 +3,20 @@
 處理註冊、登入請求。
 """
 from fastapi import APIRouter, HTTPException, Form
-from psycopg2.extras import RealDictCursor
-from config.database import get_db_conn
-from models import user_model
+from models import user_model, player_model
+from services.exercise_rules import RuleError
+import logging
+
+
+def _player(user_id):
+    try:
+        return player_model.get_player(user_id)
+    except RuleError as e:
+        raise HTTPException(404, detail=str(e)) from e
+    except Exception as e:
+        logging.getLogger(__name__).exception("Player lookup failed")
+        raise HTTPException(503, detail="暫時無法取得玩家資料") from e
+
 
 router = APIRouter(prefix="/api/users", tags=["Users"])
 
@@ -26,26 +37,7 @@ def login(username: str = Form(...), password: str = Form(...)):
         raise HTTPException(status_code=401, detail="帳號或密碼錯誤")
 
     uid = user['user_id']
-    player_data = {"player_level": 1, "player_exp": 0,
-                   "money": 0, "expToNextLevel": 1000}
-
-    conn = get_db_conn()
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                "SELECT player_level, player_exp, money FROM user_stats WHERE user_id = %s;", (uid,))
-            stats = cur.fetchone()
-            if stats:
-                player_data = {
-                    "player_level": stats['player_level'],
-                    "player_exp": stats['player_exp'],
-                    "money": stats['money'],
-                    "expToNextLevel": 1000
-                }
-    except Exception as e:
-        print(f"撈取玩家數值失敗: {e}")
-    finally:
-        conn.close()
+    player_data = _player(uid)
 
     print(f"[登入驗證成功] 玩家 UID: {uid}，資料庫數據已打包回傳 Unity")
     print("="*50 + "\n")
@@ -86,12 +78,4 @@ def register(username: str = Form(...), password: str = Form(...)):
 
 @router.get("/profile/{user_id}")
 def get_user_profile(user_id: int):
-    conn = get_db_conn()
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                "SELECT player_level, player_exp, money FROM user_stats WHERE user_id = %s", (user_id,))
-            res = cur.fetchone()
-            return {"success": True, "data": res}
-    finally:
-        conn.close()
+    return {"success": True, "data": _player(user_id)}

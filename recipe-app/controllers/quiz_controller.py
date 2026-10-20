@@ -66,7 +66,8 @@ def get_questions(count: int = 5, mode: str = "random", type: str = "all"):
     elif mode == "sequential":
         questions = quiz_model.fetch_sequential_questions(count, 0, q_type)
     else:
-        raise HTTPException(status_code=400, detail="mode 只能是 random 或 sequential")
+        raise HTTPException(
+            status_code=400, detail="mode 只能是 random 或 sequential")
 
     if not questions:
         raise HTTPException(status_code=404, detail="題庫目前沒有符合條件的題目")
@@ -104,7 +105,4 @@ def grant_reward(user_id: int = Form(...), correct_count: int = Form(...)):
     答題結束後發放獎勵到玩家的 user_stats(經驗值/金幣/等級)。
     user_id 是遊客(未帶 user_id)時前端不會呼叫這個 API,答題本身仍可正常進行。
     """
-    result = quiz_model.grant_quiz_reward(user_id, correct_count)
-    if result is None:
-        raise HTTPException(status_code=404, detail="找不到玩家資料,無法發放獎勵")
-    return {"success": True, **result}
+    raise HTTPException(status_code=410, detail="問答發獎暫停，待統一等級與獎勵交易規則；答題功能保留")

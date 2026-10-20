@@ -10,6 +10,9 @@
     uvicorn main:app --reload
 """
 
+
+from services import reward_worker
+from controllers import exercise_controller, task_controller
 from controllers import (
     recipe_controller,
     user_controller,
@@ -34,7 +37,9 @@ from fastapi.responses import FileResponse
 # ============================================================
 # 必須放在 controllers / models 被 import 之前，
 # 避免 database.py 或其他模組讀不到環境變數。
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(
+    os.path.abspath(__file__)), ".env"), override=False)
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -101,6 +106,9 @@ app.include_router(user_controller.router)
 app.include_router(upload_controller.router)
 app.include_router(game_controller.router)
 app.include_router(npc_controller.router)
+app.include_router(exercise_controller.router)
+app.include_router(task_controller.router)
+reward_worker.install(app)
 app.include_router(quiz_controller.router)
 app.include_router(shop_controller.router)
 

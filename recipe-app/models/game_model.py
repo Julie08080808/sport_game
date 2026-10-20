@@ -1,166 +1,131 @@
-from config.database import get_db_conn
-from psycopg2.extras import RealDictCursor
+from uuid import UUID
+from config.database import db_transaction
+from services.exercise_rules import RuleError
+from services.reward_service import lock_user
 
 
-# Unity 的 JsonUtility 沒辦法把 JSON null 安全地讀進 C# 的 int 欄位，
-# 所以 API 對外一律用 -1 代表「沒有手動覆寫」，NULL 只留在資料庫內部。
-NO_DISPLAY_OVERRIDE = -1
+def upgrade_rule(scene, definition, money):
+    if not definition:
+        raise RuleError('此景點沒有下一階設定')
+    if definition['scene_level'] != scene['scene_level']+1:
+        raise RuleError('只能購買下一階')
+    if scene['completed_scene_tasks'] < definition['required_total_tasks']:
+        raise RuleError('景點任務完成數不足')
+    if money < definition['unlock_cost']:
+        raise RuleError('金幣不足')
 
 
-def _cap_to_client(display_level_cap):
-    return NO_DISPLAY_OVERRIDE if display_level_cap is None else display_level_cap
+def _scene(cur, user_id, scene_id):
+    cur.execute(
+        'SELECT scene_id FROM scenes WHERE scene_id=%s AND is_active', (scene_id,))
+    if not cur.fetchone():
+        raise RuleError('景點不存在或未啟用')
+    cur.execute('INSERT INTO user_scenes(user_id,scene_id) VALUES(%s,%s) ON CONFLICT(user_id,scene_id) DO NOTHING', (user_id, scene_id))
+    cur.execute(
+        'SELECT * FROM user_scenes WHERE user_id=%s AND scene_id=%s FOR UPDATE', (user_id, scene_id))
+    return cur.fetchone()
 
 
-def get_all_scene_status(user_id: int):
-    """
-    回傳玩家目前所有場景的等級/完成次數/外觀顯示覆寫，給 Unity 進 MainMap 時同步用。
-
-    會先自動幫這個玩家補齊「scenes 表裡有、但 user_scenes 還沒有」的場景(預設 level 1)，
-    這樣以後新增場景/建築(例如寺廟)時，舊帳號不用手動補資料，下次進 MainMap 呼叫這支 API
-    就會自動生出新場景的初始紀錄——Unity 那邊完全不用改，因為它本來就是照這支 API 回傳
-    幾筆就同步幾棟建築，不是寫死 5 個。
-    """
-    conn = get_db_conn()
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                """
-                INSERT INTO user_scenes (user_id, scene_id, scene_level, scene_exp)
-                SELECT %s, s.scene_id, 1, 0
-                FROM scenes s
-                WHERE s.is_active = TRUE
-                  AND NOT EXISTS (
-                      SELECT 1 FROM user_scenes us
-                      WHERE us.user_id = %s AND us.scene_id = s.scene_id
-                  );
-                """,
-                (user_id, user_id),
-            )
-
-            cur.execute(
-                """
-                SELECT scene_id, scene_level, scene_exp, completion_count, display_level_cap
-                FROM user_scenes
-                WHERE user_id = %s
-                ORDER BY scene_id;
-                """,
-                (user_id,),
-            )
-            rows = [dict(r) for r in cur.fetchall()]
-            for r in rows:
-                r["display_level_cap"] = _cap_to_client(r["display_level_cap"])
-
-            conn.commit()
-            return rows
-    except Exception as e:
-        conn.rollback()
-        print(f"[Database Error] 取得場景狀態失敗: {e}")
-        return []
-    finally:
-        conn.close()
-
-
-def set_scene_display_level(user_id: int, scene_id: int, display_level: int):
-    """
-    玩家手動把某個場景的建築外觀調到指定等級(display_level <= 該場景目前的 scene_level)。
-    display_level 傳 -1 代表清除覆寫，改回自動顯示最新已解鎖階段。
-    五個場景各自獨立設定，不會互相影響。
-    """
-    conn = get_db_conn()
-    try:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                "SELECT scene_level FROM user_scenes WHERE user_id = %s AND scene_id = %s;",
-                (user_id, scene_id),
-            )
-            row = cur.fetchone()
-            if not row:
-                return {"success": False, "message": "找不到這個場景的玩家資料"}
-
-            if display_level == -1:
-                cap = None
-            elif 0 <= display_level <= row["scene_level"]:
-                cap = display_level
-            else:
-                return {
-                    "success": False,
-                    "message": f"display_level 必須介於 0 到 {row['scene_level']}(目前場景等級)之間，或傳 -1 清除覆寫",
-                }
-
-            cur.execute(
-                """
-                UPDATE user_scenes
-                SET display_level_cap = %s
-                WHERE user_id = %s AND scene_id = %s
-                RETURNING scene_level, display_level_cap;
-                """,
-                (cap, user_id, scene_id),
-            )
-            result = cur.fetchone()
-            conn.commit()
-
-            return {
-                "success": True,
-                "scene_id": scene_id,
-                "scene_level": result["scene_level"],
-                "display_level_cap": _cap_to_client(result["display_level_cap"]),
-            }
-    except Exception as e:
-        conn.rollback()
-        print(f"[Database Error] 設定場景外觀失敗: {e}")
-        return {"success": False, "message": f"設定失敗: {e}"}
-    finally:
-        conn.close()
-
-
-def process_task_completion(user_id: int, building_type: int, exp_gained: int):
-    conn = get_db_conn()
-    try:
+def get_all_scene_status(user_id):
+    with db_transaction() as conn:
         with conn.cursor() as cur:
-            # 1. 更新玩家數據 (player_level, player_exp, money)
-            # 假設玩家等級公式：每 1000 經驗升一級
-            sql_user = """
-                UPDATE user_stats 
-                SET player_exp = player_exp + %s,
-                    money = money + (%s / 10), -- 獎勵金幣為經驗的 1/10
-                    player_level = player_level + floor((player_exp + %s) / 1000)::int,
-                    player_exp = (player_exp + %s) % 1000
-                WHERE user_id = %s
-                RETURNING player_level, player_exp, money;
-            """
-            cur.execute(sql_user, (exp_gained, exp_gained,
-                        exp_gained, exp_gained, user_id))
-            user_data = cur.fetchone()
+            stats = lock_user(cur, user_id)
+            cur.execute(
+                'INSERT INTO user_scenes(user_id,scene_id) SELECT %s,scene_id FROM scenes WHERE is_active ON CONFLICT(user_id,scene_id) DO NOTHING', (user_id,))
+            cur.execute('''SELECT us.*,s.scene_key,s.scene_name,a.required_level AS selected_level
+                FROM user_scenes us JOIN scenes s USING(scene_id)
+                LEFT JOIN scene_appearance_stages a ON a.appearance_stage_id=us.current_selected_appearance_stage_id
+                WHERE us.user_id=%s AND s.is_active ORDER BY us.scene_id''', (user_id,))
+            rows = [dict(r) for r in cur.fetchall()]
+            cur.execute(
+                'SELECT * FROM scene_level_definitions ORDER BY scene_id,scene_level')
+            definitions = cur.fetchall()
+            for r in rows:
+                nxt = next(
+                    (d for d in definitions if d['scene_id'] == r['scene_id'] and d['scene_level'] == r['scene_level']+1), None)
+                # compatibility alias; cumulative, never reset
+                r['completion_count'] = r['completed_scene_tasks']
+                r['display_level_cap'] = r.pop('selected_level') or -1
+                r['next_level'] = dict(nxt) if nxt else None
+                r['tasks_remaining'] = max(
+                    0, nxt['required_total_tasks']-r['completed_scene_tasks']) if nxt else 0
+                r['can_upgrade'] = bool(
+                    nxt and r['tasks_remaining'] == 0 and stats['money'] >= nxt['unlock_cost'])
+            return rows
 
-            # 2. 更新建築數據 (level, current_exp)
-            # 假設建築等級公式：每 500 經驗升一級
-            sql_building = """
-                UPDATE building_stats 
-                SET current_exp = current_exp + %s,
-                    level = level + floor((current_exp + %s) / 500)::int,
-                    current_exp = (current_exp + %s) % 500
-                WHERE user_id = %s AND building_type = %s
-                RETURNING level, current_exp;
-            """
-            cur.execute(sql_building, (exp_gained, exp_gained,
-                        exp_gained, user_id, building_type))
-            building_data = cur.fetchone()
 
-            # 3. 寫入運動日誌 (exercise_logs)
-            sql_log = """
-                INSERT INTO exercise_logs (user_id, building_type, exp_gained, created_at)
-                VALUES (%s, %s, %s, CURRENT_TIMESTAMP);
-            """
-            cur.execute(sql_log, (user_id, building_type, exp_gained))
+def purchase_scene_level(user_id, scene_id, target_level, request_id):
+    request = str(UUID(str(request_id)))
+    with db_transaction() as conn:
+        with conn.cursor() as cur:
+            stats = lock_user(cur, user_id)
+            cur.execute(
+                'SELECT * FROM scene_level_purchases WHERE user_id=%s AND request_id=%s', (user_id, request))
+            old = cur.fetchone()
+            if old:
+                if (old['scene_id'], old['scene_level']) != (scene_id, target_level):
+                    raise RuleError('同一購買請求不能更換景點或階級')
+                return dict(success=True, idempotent_replay=True, purchase=dict(old), money=stats['money'])
+            scene = _scene(cur, user_id, scene_id)
+            cur.execute(
+                'SELECT * FROM scene_level_definitions WHERE scene_id=%s AND scene_level=%s', (scene_id, target_level))
+            definition = cur.fetchone()
+            upgrade_rule(scene, definition, stats['money'])
+            cost = definition['unlock_cost']
+            cur.execute(
+                'UPDATE user_stats SET money=money-%s,updated_at=CURRENT_TIMESTAMP WHERE user_id=%s RETURNING money', (cost, user_id))
+            balance = cur.fetchone()['money']
+            cur.execute("INSERT INTO coin_ledger(user_id,request_key,entry_type,amount,balance_after) VALUES(%s,%s,'scene_unlock',%s,%s) RETURNING ledger_id",
+                        (user_id, 'scene:'+request, -cost, balance))
+            ledger = cur.fetchone()['ledger_id']
+            cur.execute('''INSERT INTO scene_level_purchases(user_id,scene_id,scene_level,request_id,required_total_tasks,cost,coin_ledger_id)
+                VALUES(%s,%s,%s,%s,%s,%s,%s) RETURNING *''', (user_id, scene_id, target_level, request, definition['required_total_tasks'], cost, ledger))
+            purchase = dict(cur.fetchone())
+            cur.execute('UPDATE user_scenes SET scene_level=%s,updated_at=CURRENT_TIMESTAMP WHERE user_id=%s AND scene_id=%s',
+                        (target_level, user_id, scene_id))
+            return dict(success=True, idempotent_replay=False, purchase=purchase, money=balance)
 
-            conn.commit()
-            return {
-                "user": user_data,
-                "building": building_data
-            }
-    except Exception as e:
-        conn.rollback()
-        print(f"Database Error: {e}")
-        return None
-    finally:
-        conn.close()
+
+def get_appearances(user_id, scene_id):
+    with db_transaction() as conn:
+        with conn.cursor() as cur:
+            lock_user(cur, user_id)
+            scene = _scene(cur, user_id, scene_id)
+            cur.execute(
+                'SELECT * FROM scene_appearance_stages WHERE scene_id=%s AND is_active ORDER BY required_level,sort_order,appearance_stage_id', (scene_id,))
+            return [dict(r, is_unlocked=r['required_level'] <= scene['scene_level'], is_selected=r['appearance_stage_id'] == scene['current_selected_appearance_stage_id']) for r in cur.fetchall()]
+
+
+def select_appearance(user_id, scene_id, appearance_stage_id=None, display_level=None):
+    with db_transaction() as conn:
+        with conn.cursor() as cur:
+            lock_user(cur, user_id)
+            scene = _scene(cur, user_id, scene_id)
+            chosen = None
+            if appearance_stage_id is not None:
+                cur.execute('SELECT * FROM scene_appearance_stages WHERE appearance_stage_id=%s AND scene_id=%s AND is_active',
+                            (appearance_stage_id, scene_id))
+                chosen = cur.fetchone()
+            elif display_level != -1:
+                if display_level is None or not 1 <= display_level <= scene['scene_level']:
+                    raise RuleError('外觀階級必須已解鎖，或傳 -1 恢復自動')
+                cur.execute('SELECT * FROM scene_appearance_stages WHERE scene_id=%s AND required_level=%s AND is_active ORDER BY is_default DESC,sort_order,appearance_stage_id LIMIT 1', (scene_id, display_level))
+                chosen = cur.fetchone()
+            if (appearance_stage_id is not None or display_level != -1) and not chosen:
+                raise RuleError('尚未設定此景點外觀資產')
+            if chosen and chosen['required_level'] > scene['scene_level']:
+                raise RuleError('此外觀尚未解鎖')
+            if chosen:
+                cur.execute('INSERT INTO user_scene_appearance_unlocks(user_id,appearance_stage_id) VALUES(%s,%s) ON CONFLICT DO NOTHING',
+                            (user_id, chosen['appearance_stage_id']))
+            cur.execute('UPDATE user_scenes SET current_selected_appearance_stage_id=%s,updated_at=CURRENT_TIMESTAMP WHERE user_id=%s AND scene_id=%s',
+                        (chosen['appearance_stage_id'] if chosen else None, user_id, scene_id))
+            return dict(success=True, scene_id=scene_id, scene_level=scene['scene_level'], current_selected_appearance_stage_id=chosen['appearance_stage_id'] if chosen else None, display_level_cap=chosen['required_level'] if chosen else -1)
+
+
+def set_scene_display_level(user_id, scene_id, display_level):
+    return select_appearance(user_id, scene_id, display_level=display_level)
+
+
+def process_task_completion(*args, **kwargs):
+    raise RuleError('請使用 Session 同步與後端發獎')

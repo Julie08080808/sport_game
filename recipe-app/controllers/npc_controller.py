@@ -45,6 +45,7 @@ def respond_task(
     task_id: int = Form(...),
     accepted: bool = Form(...),
     story_variant: str = Form("A"),
+    accept_request_id: Optional[str] = Form(None),
 ):
     result = npc_model.accept_or_decline_task(
         user_id=user_id,
@@ -52,6 +53,7 @@ def respond_task(
         task_id=task_id,
         accepted=accepted,
         story_variant=story_variant,
+        accept_request_id=accept_request_id,
     )
 
     if not result.get("success"):
@@ -67,14 +69,10 @@ def complete_task(
     task_progress_id: int = Form(...),
 ):
     result = npc_model.complete_task(
-        user_id=user_id,
-        task_progress_id=task_progress_id,
-    )
-
+        user_id=user_id, task_progress_id=task_progress_id)
     if not result.get("success"):
         raise HTTPException(
-            status_code=400, detail=result.get("message", "完成任務失敗"))
-
+            status_code=409, detail=result.get("message", "任務尚未完成"))
     return result
 
 
@@ -94,13 +92,5 @@ def start_self_training(
     user_id: int = Form(...),
     task_id: int = Form(...),
 ):
-    result = npc_model.start_self_training(
-        user_id=user_id,
-        task_id=task_id,
-    )
-
-    if not result.get("success"):
-        raise HTTPException(
-            status_code=400, detail=result.get("message", "開始自主運動失敗"))
-
-    return result
+    raise HTTPException(
+        status_code=503, detail="自主運動已改為 Exercise＋自訂目標，Session 開始入口尚待下一步完成")
