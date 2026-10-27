@@ -97,6 +97,15 @@ async function loadInventory() {
     }
 }
 
+function makeRequestId() {
+    if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+    // 退回簡易 UUID v4 產生器,給不支援 crypto.randomUUID 的舊版 WebView 用
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = Math.random() * 16 | 0;
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+}
+
 async function buyItem(itemId) {
     if (!USER_ID) {
         showToast('請先登入,或在上方輸入 user_id');
@@ -108,6 +117,8 @@ async function buyItem(itemId) {
     form.set('user_id', USER_ID);
     form.set('item_id', itemId);
     form.set('quantity', 1);
+    // 後端用 request_id 防止同一筆購買被重複送出扣兩次錢,每次點擊視為新的購買請求
+    form.set('request_id', makeRequestId());
 
     try {
         const res = await fetch(`${API_SHOP}/purchase`, {

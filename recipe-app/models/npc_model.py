@@ -106,6 +106,8 @@ def _payload(cur, task, progress=None):
             "task_mode",
             "allow_pause",
             "allow_resume",
+            "time_limit_seconds",
+            "bonus_target_count",
         )
     }
     out.update(
@@ -216,11 +218,13 @@ def get_npc_task_offer(user_id, npc_key):
             if pending:
                 t, p = sorted(pending, key=lambda x: x[1]["progress_id"])[0]
                 out = _payload(cur, t, p)
-                out["dialogue_text"] = (
-                    "運動已完成，獎勵處理中。"
-                    if out["reward_pending"]
-                    else "已保留進度，準備好就可以繼續。"
-                )
+                if p["status"] in ("in_progress", "interrupted"):
+                    # 進行中／中離的任務不能靠跟 NPC 對話直接續做，只能從「我的任務」資料夾重新進入。
+                    out["dialogue_text"] = "有正在進行中的任務喔，請到「我的任務」資料夾繼續。"
+                elif out["reward_pending"]:
+                    out["dialogue_text"] = "運動已完成，獎勵處理中。"
+                else:
+                    out["dialogue_text"] = "已保留進度，準備好就可以繼續。"
             elif available:
                 maxp = max(t["priority"] for t in available)
                 pool = [t for t in available if t["priority"] == maxp]
@@ -260,6 +264,7 @@ def accept_or_decline_task(
     accepted,
     story_variant="A",
     accept_request_id=None,
+    via_folder=False,
 ):
     if not accepted:
         return {
@@ -312,6 +317,24 @@ def accept_or_decline_task(
                     }
             p = _active(cur, user_id, task_id)
             if p:
+                if p["status"] in ("in_progress", "interrupted") and not via_folder:
+                    # 進行中／中離的任務只能從「我的任務」資料夾重新進入，跟 NPC 對話不能直接續做。
+                    raise ValueError("有正在進行中的任務喔，請到「我的任務」資料夾繼續。")
+                # 中離(或放著沒動)超過 1 小時沒回來繼續的任務，視為放棄，重新接取時進度歸零。
+                # 限時挑戰任務(time_limit_seconds 有值)不管離開多久，只要重新進入就直接歸零重來，
+                # 因為原本的倒數早就不合理了，等同每次重新進入都是全新一次挑戰。
+                if p["status"] in ("in_progress", "interrupted"):
+                    cur.execute(
+                        """UPDATE user_task_progress SET progress_count=0,progress_seconds=0,
+                        status='in_progress',updated_at=CURRENT_TIMESTAMP
+                        WHERE progress_id=%s
+                          AND (%s OR CURRENT_TIMESTAMP - COALESCE(last_progress_at,accepted_at) > INTERVAL '1 hour')
+                        RETURNING *""",
+                        (p["progress_id"], t["time_limit_seconds"] is not None),
+                    )
+                    reset = cur.fetchone()
+                    if reset:
+                        p = reset
                 out = _payload(cur, t, p)
                 conn.commit()
                 return {"success": True, "resumed": True, **out}

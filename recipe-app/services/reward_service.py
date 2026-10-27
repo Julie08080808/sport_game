@@ -23,18 +23,23 @@ def reward_task(user_id,progress_id):
             p=cur.fetchone()
             if not p:
                 raise RuleError('找不到本人任務')
+            cur.execute('SELECT scene_id,task_kind,bonus_target_count FROM tasks WHERE task_id=%s',(p['task_id'],))
+            t=cur.fetchone()
+            # 限時挑戰超標(次數達 bonus_target_count)的話，實際入帳的經驗值要翻倍；
+            # snapshot_player_exp 接取後就被資料庫凍結不能改，所以翻倍只在發獎這一步、灌進 user_stats 時計算，
+            # 不動 reward_transactions 記錄的基礎數字(那欄受觸發器強制等於快照值)。
+            bonus_hit=bool(t['bonus_target_count'] is not None and p['progress_count']>=t['bonus_target_count'])
+            exp_award=p['snapshot_player_exp']*(2 if bonus_hit else 1) if p['snapshot_player_exp'] is not None else None
             cur.execute('SELECT * FROM reward_transactions WHERE task_progress_id=%s',(progress_id,))
             original=cur.fetchone()
             if original:
-                return dict(original,idempotent_replay=True)
+                return dict(original,idempotent_replay=True,player_exp=exp_award,bonus_exp_awarded=bonus_hit)
             if p['status'] not in ('completed','claimable'):
                 raise RuleError('任務尚未完成')
             if not goal_met(p['snapshot_goal_type'],p['progress_count'],p['progress_seconds'],p['target_count'],p['target_seconds']):
                 raise RuleError('任務未達標')
             if any(p[k] is None for k in ('snapshot_player_exp','snapshot_scene_exp','snapshot_money')):
                 raise RuleError('獎勵快照缺失')
-            cur.execute('SELECT scene_id,task_kind FROM tasks WHERE task_id=%s',(p['task_id'],))
-            t=cur.fetchone()
             if t['task_kind']=='daily_challenge' and p['snapshot_scene_exp']!=0:
                 raise RuleError('每日自主挑戰不能增加景點進度')
             if p['snapshot_scene_exp'] not in (0,1):
@@ -59,7 +64,7 @@ def reward_task(user_id,progress_id):
                 ('task:'+str(progress_id),user_id,progress_id,t['scene_id'],p['snapshot_player_exp'],
                  p['snapshot_scene_exp'],money,b['binding_id'] if b else None))
             reward=cur.fetchone()  # DB guard verifies eligibility and immutable snapshots.
-            total_exp=stats['player_exp']+p['snapshot_player_exp']
+            total_exp=stats['player_exp']+exp_award
             cur.execute('SELECT max(player_level) AS level FROM player_level_definitions WHERE required_total_exp<=%s',(total_exp,))
             level=cur.fetchone()['level']
             if level is None:
@@ -87,7 +92,7 @@ def reward_task(user_id,progress_id):
                 updated_at=CURRENT_TIMESTAMP WHERE progress_id=%s""",(progress_id,))
             if p['daily_task_id'] is not None:
                 cur.execute("UPDATE daily_tasks SET eligibility_state='rewarded' WHERE daily_task_id=%s",(p['daily_task_id'],))
-            return dict(reward,idempotent_replay=False)
+            return dict(reward,idempotent_replay=False,player_exp=exp_award,bonus_exp_awarded=bonus_hit)
 
 
 def try_reward(user_id,progress_id):

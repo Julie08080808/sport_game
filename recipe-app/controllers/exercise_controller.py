@@ -54,6 +54,11 @@ def sync(req: SyncRequest):
     return _call(exercise_model.sync_session, **req.model_dump())
 
 
+@router.get('/definitions/{exercise_id}')
+def get_definition(exercise_id: int):
+    return _call(exercise_model.get_definition, exercise_id=exercise_id)
+
+
 @router.get('/session/open')
 def get_open_session(user_id: int):
     return _call(exercise_model.get_open_session, user_id=user_id)

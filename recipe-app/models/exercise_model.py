@@ -21,6 +21,17 @@ def _progress(cur, user_id, progress_id):
     return p
 
 
+def get_definition(exercise_id):
+    with db_transaction() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""SELECT exercise_id, exercise_key, exercise_name, description
+                FROM exercise_definitions WHERE exercise_id=%s AND is_active""", (exercise_id,))
+            d = cur.fetchone()
+            if not d:
+                raise RuleError('找不到運動項目')
+            return dict(success=True, **dict(d))
+
+
 def get_session(user_id, session_id):
     with db_transaction() as conn:
         with conn.cursor() as cur:
@@ -55,6 +66,16 @@ def _result(cur, s):
             'SELECT * FROM reward_transactions WHERE task_progress_id=%s', (s['task_progress_id'],))
         r = cur.fetchone()
         out['reward'] = dict(r) if r else None
+        if out['reward'] is not None:
+            # reward_transactions.player_exp 永遠是接取時的快照值(被觸發器凍結)；
+            # 限時挑戰超標時實際多發的經驗值只灌進 user_stats，這裡要把顯示用的數字補成真正發到手的總額。
+            cur.execute("""SELECT t.bonus_target_count FROM tasks t
+                JOIN user_task_progress p ON p.task_id=t.task_id
+                WHERE p.progress_id=%s""", (s['task_progress_id'],))
+            bonus_target = cur.fetchone()['bonus_target_count']
+            if bonus_target is not None and out['task']['progress_count'] >= bonus_target:
+                out['reward']['player_exp'] *= 2
+                out['reward']['bonus_exp_awarded'] = True
     cur.execute(
         'SELECT player_level,player_exp,money FROM user_stats WHERE user_id=%s', (s['user_id'],))
     out['player'] = dict(cur.fetchone())
@@ -157,6 +178,15 @@ def sync_session(user_id, session_id, sync_sequence, cumulative_count, cumulativ
                     ps = p['progress_seconds']+ds
                     met = goal_met(p['snapshot_goal_type'], pc,
                                    ps, p['target_count'], p['target_seconds'])
+                    if met and state == 'active':
+                        # 限時挑戰：次數達到合格門檻(X)當下還在 60 秒內持續運動，先別急著結束 Session，
+                        # 讓玩家有機會繼續衝到超標門檻(Y)拿雙倍經驗；時間到(state='ended')或中離才真的結算。
+                        cur.execute(
+                            'SELECT time_limit_seconds,bonus_target_count FROM tasks WHERE task_id=%s', (p['task_id'],))
+                        tl = cur.fetchone()
+                        if tl['time_limit_seconds'] is not None and tl['bonus_target_count'] is not None \
+                                and pc < tl['bonus_target_count']:
+                            met = False
                     cur.execute("""UPDATE user_task_progress SET progress_count=%s,progress_seconds=%s,
                       status=%s,completed_at=CASE WHEN %s THEN COALESCE(completed_at,CURRENT_TIMESTAMP) ELSE completed_at END,
                       last_progress_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE progress_id=%s""",

@@ -46,6 +46,7 @@ def respond_task(
     accepted: bool = Form(...),
     story_variant: str = Form("A"),
     accept_request_id: Optional[str] = Form(None),
+    via_folder: bool = Form(False),
 ):
     result = npc_model.accept_or_decline_task(
         user_id=user_id,
@@ -54,6 +55,7 @@ def respond_task(
         accepted=accepted,
         story_variant=story_variant,
         accept_request_id=accept_request_id,
+        via_folder=via_folder,
     )
 
     if not result.get("success"):

@@ -22,6 +22,22 @@ def list_tasks(user_id:int):
               WHERE p.user_id=%s ORDER BY p.progress_id DESC LIMIT 100""",(user_id,))
             return {'success':True,'tasks':cur.fetchall()}
 
+@router.get('/folder')
+def folder(user_id:int):
+    with db_transaction() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""SELECT p.progress_id AS task_progress_id,p.task_id,p.source_npc_id AS npc_id,
+              t.task_name,t.task_kind,t.task_category,
+              p.status,p.progress_count,p.progress_seconds,p.target_count,p.target_seconds,
+              p.accepted_at,p.completed_at,
+              (p.status IN ('accepted','in_progress','interrupted')) AS can_resume,
+              (p.status IN ('in_progress','interrupted')
+                 AND CURRENT_TIMESTAMP - COALESCE(p.last_progress_at,p.accepted_at) > INTERVAL '1 hour') AS progress_will_reset
+              FROM user_task_progress p JOIN tasks t USING(task_id)
+              WHERE p.user_id=%s AND p.accepted_at >= CURRENT_TIMESTAMP - INTERVAL '24 hours'
+              ORDER BY p.accepted_at DESC""",(user_id,))
+            return {'success':True,'tasks':cur.fetchall()}
+
 @router.post('/result/viewed')
 def viewed(req:TaskRequest):
     with db_transaction() as conn:
