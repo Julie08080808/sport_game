@@ -4,6 +4,7 @@ from config.database import db_transaction
 from services.reward_service import lock_user,reward_task
 from services.exercise_rules import RuleError,goal_met
 from controllers.exercise_controller import _call
+from models.npc_model import expire_stale_progress
 
 router=APIRouter(prefix='/api/tasks',tags=['Task Progress'])
 class TaskRequest(BaseModel):
@@ -14,6 +15,7 @@ class TaskRequest(BaseModel):
 def list_tasks(user_id:int):
     with db_transaction() as conn:
         with conn.cursor() as cur:
+            expire_stale_progress(cur,user_id)
             cur.execute("""SELECT p.progress_id AS task_progress_id,p.task_id,t.task_name,t.task_kind,
               p.status,p.progress_count,p.progress_seconds,p.target_count,p.target_seconds,
               p.completed_at,p.rewarded_at,p.completion_viewed_at,
@@ -26,6 +28,9 @@ def list_tasks(user_id:int):
 def folder(user_id:int):
     with db_transaction() as conn:
         with conn.cursor() as cur:
+            expire_stale_progress(cur,user_id)
+            # 進行中/可續做/獎勵待領的任務一直顯示到玩家處理完為止；
+            # 已放棄/已領獎這種結束掉的，只當天(以 00:00 為界,不是滾動24小時)留著當紀錄，隔天就不再顯示。
             cur.execute("""SELECT p.progress_id AS task_progress_id,p.task_id,p.source_npc_id AS npc_id,
               t.task_name,t.task_kind,t.task_category,
               p.status,p.progress_count,p.progress_seconds,p.target_count,p.target_seconds,
@@ -34,7 +39,10 @@ def folder(user_id:int):
               (p.status IN ('in_progress','interrupted')
                  AND CURRENT_TIMESTAMP - COALESCE(p.last_progress_at,p.accepted_at) > INTERVAL '1 hour') AS progress_will_reset
               FROM user_task_progress p JOIN tasks t USING(task_id)
-              WHERE p.user_id=%s AND p.accepted_at >= CURRENT_TIMESTAMP - INTERVAL '24 hours'
+              WHERE p.user_id=%s AND (
+                p.status IN ('accepted','in_progress','interrupted','completed','claimable')
+                OR COALESCE(p.abandoned_at,p.rewarded_at,p.completed_at)::date = CURRENT_DATE
+              )
               ORDER BY p.accepted_at DESC""",(user_id,))
             return {'success':True,'tasks':cur.fetchall()}
 

@@ -40,6 +40,19 @@ def _prerequisites_satisfied(cur, user_id, task_id):
     return cur.fetchone() is None
 
 
+def expire_stale_progress(cur, user_id):
+    """中離或擱置超過 1 小時仍未回來繼續的任務，自動轉為已放棄；
+    不再是「之後回來繼續就靜悄悄歸零」，而是直接結束掉，讓 NPC 可以重新發新任務，
+    資料夾那邊也會如實顯示「已放棄」，不會卡在看起來還在進行中卻點不進去的狀態。"""
+    cur.execute(
+        """UPDATE user_task_progress SET status='abandoned',abandoned_at=CURRENT_TIMESTAMP,
+           updated_at=CURRENT_TIMESTAMP
+           WHERE user_id=%s AND status IN ('in_progress','interrupted')
+             AND CURRENT_TIMESTAMP - COALESCE(last_progress_at,accepted_at) > INTERVAL '1 hour'""",
+        (user_id,),
+    )
+
+
 def _active(cur, user_id, task_id):
     cur.execute(
         """SELECT * FROM user_task_progress WHERE user_id=%s AND task_id=%s
@@ -68,9 +81,11 @@ def _eligible(cur, user_id, task, day):
     if task["recurrence_type"] != "none":
         # Do not guess semantics for unplanned recurring story tasks.
         return False
+    # story 任務可以重複做，但領過獎勵後要冷卻 1 小時才能再接；
+    # 放棄的(不管玩家自己放棄還是超時被自動放棄)不算數、不會卡住下一次接取。
     cur.execute(
         """SELECT 1 FROM user_task_progress WHERE user_id=%s AND task_id=%s
-       AND status IN ('completed','claimable','rewarded') LIMIT 1""",
+       AND status='rewarded' AND CURRENT_TIMESTAMP - rewarded_at < INTERVAL '1 hour' LIMIT 1""",
         (user_id, task["task_id"]),
     )
     return cur.fetchone() is None
@@ -197,6 +212,8 @@ def get_npc_task_offer(user_id, npc_key):
             stats = cur.fetchone()
             if not stats:
                 return {"success": False, "message": "找不到玩家資料"}
+            expire_stale_progress(cur, user_id)
+            conn.commit()
             cur.execute(TASK_SELECT, (user_id, npc["npc_id"]))
             tasks = cur.fetchall()
             available = []
@@ -288,6 +305,7 @@ def accept_or_decline_task(
             stats = cur.fetchone()
             if not stats:
                 raise ValueError("找不到玩家資料")
+            expire_stale_progress(cur, user_id)
             cur.execute(
                 TASK_SELECT + " AND t.task_id=%s",
                 (user_id, npc_id, task_id),
@@ -320,21 +338,18 @@ def accept_or_decline_task(
                 if p["status"] in ("in_progress", "interrupted") and not via_folder:
                     # 進行中／中離的任務只能從「我的任務」資料夾重新進入，跟 NPC 對話不能直接續做。
                     raise ValueError("有正在進行中的任務喔，請到「我的任務」資料夾繼續。")
-                # 中離(或放著沒動)超過 1 小時沒回來繼續的任務，視為放棄，重新接取時進度歸零。
+                # 超過 1 小時沒回來繼續的任務，已經被上面的 expire_stale_progress 轉成「已放棄」，
+                # 不會再跑到這裡；這裡只會是 1 小時內的正常續做。
                 # 限時挑戰任務(time_limit_seconds 有值)不管離開多久，只要重新進入就直接歸零重來，
                 # 因為原本的倒數早就不合理了，等同每次重新進入都是全新一次挑戰。
-                if p["status"] in ("in_progress", "interrupted"):
+                if p["status"] in ("in_progress", "interrupted") and t["time_limit_seconds"] is not None:
                     cur.execute(
                         """UPDATE user_task_progress SET progress_count=0,progress_seconds=0,
                         status='in_progress',updated_at=CURRENT_TIMESTAMP
-                        WHERE progress_id=%s
-                          AND (%s OR CURRENT_TIMESTAMP - COALESCE(last_progress_at,accepted_at) > INTERVAL '1 hour')
-                        RETURNING *""",
-                        (p["progress_id"], t["time_limit_seconds"] is not None),
+                        WHERE progress_id=%s RETURNING *""",
+                        (p["progress_id"],),
                     )
-                    reset = cur.fetchone()
-                    if reset:
-                        p = reset
+                    p = cur.fetchone()
                 out = _payload(cur, t, p)
                 conn.commit()
                 return {"success": True, "resumed": True, **out}
