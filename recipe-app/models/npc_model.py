@@ -185,13 +185,19 @@ def _story(cur, task_id, variant=None):
     if not variants and variant != "A":
         raise ValueError("此任務僅支援預設故事版本 A")
     cur.execute(
-        """SELECT dialogue_text FROM task_story_steps WHERE task_id=%s AND story_variant=%s
+        """SELECT dialogue_text, demo_video_key FROM task_story_steps
+       WHERE task_id=%s AND story_variant=%s
        AND story_phase IN ('intro','offer') ORDER BY step_order""",
         (task_id, variant),
     )
-    return variant, "\n".join(
-        r["dialogue_text"] for r in cur.fetchall() if r.get("dialogue_text")
+    rows = cur.fetchall()
+    text = "\n".join(r["dialogue_text"] for r in rows if r.get("dialogue_text"))
+    # 示範影片的 key 目前跟對話文字放在同一筆資料，填對話時順便填這個欄位即可；
+    # 同一個 variant 底下只要有任一步驟填了就用它，不要求每個 step 都重複填。
+    video_key = next(
+        (r["demo_video_key"] for r in rows if r.get("demo_video_key")), None
     )
+    return variant, text, video_key
 
 
 def get_npc_task_offer(user_id, npc_key):
@@ -235,6 +241,8 @@ def get_npc_task_offer(user_id, npc_key):
             if pending:
                 t, p = sorted(pending, key=lambda x: x[1]["progress_id"])[0]
                 out = _payload(cur, t, p)
+                _, _, out["demo_video_key"] = _story(
+                    cur, t["task_id"], p.get("story_variant"))
                 if p["status"] in ("in_progress", "interrupted"):
                     # 進行中／中離的任務不能靠跟 NPC 對話直接續做，只能從「我的任務」資料夾重新進入。
                     out["dialogue_text"] = "有正在進行中的任務喔，請到「我的任務」資料夾繼續。"
@@ -248,7 +256,7 @@ def get_npc_task_offer(user_id, npc_key):
                 t = random.choices(
                     pool, weights=[t["weight"] for t in pool], k=1)[0]
                 out = _payload(cur, t)
-                out["story_variant"], text = _story(cur, t["task_id"])
+                out["story_variant"], text, out["demo_video_key"] = _story(cur, t["task_id"])
                 out["dialogue_text"] = text or t["task_description"] or t["task_name"]
             else:
                 return {
@@ -326,6 +334,8 @@ def accept_or_decline_task(
                     ):
                         raise ValueError("此請求識別碼已用於其他任務")
                     out = _payload(cur, t, original)
+                    _, _, out["demo_video_key"] = _story(
+                        cur, task_id, original.get("story_variant"))
                     conn.commit()
                     return {
                         "success": True,
@@ -351,6 +361,8 @@ def accept_or_decline_task(
                     )
                     p = cur.fetchone()
                 out = _payload(cur, t, p)
+                _, _, out["demo_video_key"] = _story(
+                    cur, task_id, p.get("story_variant"))
                 conn.commit()
                 return {"success": True, "resumed": True, **out}
             if not t["unlocked"] or t["required_player_level"] > stats["player_level"]:
@@ -362,7 +374,7 @@ def accept_or_decline_task(
                 raise ValueError("此任務目前不可接取或今日已完成")
             if t["expire_policy"] != "none":
                 raise ValueError("限時任務尚未納入本次版本")
-            variant, _ = _story(cur, task_id, story_variant)
+            variant, _, video_key = _story(cur, task_id, story_variant)
             daily_id = None
             if t["task_kind"] == "daily_challenge":
                 cur.execute(
@@ -398,6 +410,7 @@ def accept_or_decline_task(
             # Includes DB-trigger-created immutable snapshots.
             p = cur.fetchone()
             out = _payload(cur, t, p)
+            out["demo_video_key"] = video_key
             conn.commit()
             return {"success": True, "resumed": False, "message": "任務接受成功", **out}
     except ValueError as exc:

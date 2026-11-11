@@ -87,6 +87,10 @@
 4. **WebCam1104 package**：目前還**沒有匯入**（當初取消了，先去處理隊友的編譯錯誤問題），如果還需要這個功能要再找時間處理，記得匯入前先跟現有檔案比對 GUID 衝突。
 5. **Unity 前端 GitHub repo**：還沒建立，等你提供網址後我會幫你把今天的進度推上去，並寫一份簡單的 push/pull 操作說明。
 6. **六種運動的正式示範圖片／動畫圖**：目前都是暫用舊圖，欄位架構做完了，缺美術素材。
+7. **（2026-11-11 新發現並修復）Farm 外觀選擇浮窗點擊沒反應**：
+   - 根因有兩層：① `Farm_Data.asset` 的三階 `unlockLevel` 原本是 `0,1,2`，但後端規定可選等級必須 `1 <= display_level <= 目前等級`（資料庫 `scene_level` 本來就規定 `>=1`，沒有 0 這個等級），送 0 會直接被拒絕；② 就算等級對了，`scene_appearance_stages`（外觀階段定義表）整張表本來是空的，查不到對應資料一樣會失敗——這張表從建立以來沒有人真正塞過資料。
+   - 已修復：`Farm_Data.asset` 的 `unlockLevel` 改成 `1,2,3`，並在資料庫補上 3 筆對應資料（見上方第五節 SQL），本機測試 API 呼叫已確認成功。
+   - **還沒處理**：`Center_Data`、`Forest_Data`、`Pond_Data`、`Store_Data` 四個建築的 `stages` 目前都還是未完成的佔位資料（三階全部是 `unlockLevel: 0`、共用同一張圖），這幾棟要做外觀選擇功能時，要比照 Farm 的方式：先把 `unlockLevel` 編號改成從 1 開始，再去資料庫補上對應的 `scene_appearance_stages` 資料（`scene_id` 分別是 Pond=2、Forest=3、對應到 `buildingType` 欄位的 scene_id，記得跟 `scenes` 資料表核對）。
 
 ---
 
@@ -129,7 +133,15 @@
 
 ```sql
 ALTER TABLE user_task_progress ADD COLUMN IF NOT EXISTS abandon_reason VARCHAR(20) NOT NULL DEFAULT 'manual';
+
+INSERT INTO scene_appearance_stages(scene_id, appearance_name, required_level, sort_order, is_default, is_active)
+VALUES
+  (1, 'Farm Lv.1 外觀', 1, 1, true, true),
+  (1, 'Farm Lv.2 外觀', 2, 2, false, true),
+  (1, 'Farm Lv.3 外觀', 3, 3, false, true);
 ```
+
+（第二段是 2026-11-11 新補的：`scene_appearance_stages` 整張表原本是空的，導致 Farm 的「外觀選擇」浮窗不管點哪個圖示都會失敗。詳見下方第七點。）
 
 （其餘今天異動的 `exercise_definitions`、`tasks`、`npc_task_assignments`、`task_story_steps` 相關 INSERT/UPDATE，屬於資料內容而非欄位結構，若隊友的資料庫跟你是各自獨立的測試資料，不用特別同步；若你們共用同一顆資料庫就不用管這段。）
 

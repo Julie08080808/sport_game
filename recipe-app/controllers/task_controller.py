@@ -12,7 +12,7 @@ class TaskRequest(BaseModel):
     user_id:int=Field(gt=0)
     task_progress_id:int=Field(gt=0)
 
-ABANDON_REASONS={'manual','challenge_timeout'}
+ABANDON_REASONS={'manual','challenge_timeout','preparation_exit'}
 class AbandonRequest(BaseModel):
     user_id:int=Field(gt=0)
     task_progress_id:int=Field(gt=0)
@@ -49,7 +49,10 @@ def folder(user_id:int,date:Optional[str]=None):
               FROM user_task_progress p JOIN tasks t USING(task_id)
               WHERE p.user_id=%s AND (
                 p.status IN ('completed','claimable')
-                OR COALESCE(p.abandoned_at,p.rewarded_at,p.completed_at)::date = COALESCE(%s::date,CURRENT_DATE)
+                OR (
+                  COALESCE(p.abandoned_at,p.rewarded_at,p.completed_at)::date = COALESCE(%s::date,CURRENT_DATE)
+                  AND p.abandon_reason != 'preparation_exit'
+                )
               )
               ORDER BY p.accepted_at DESC""",(user_id,date))
             return {'success':True,'tasks':cur.fetchall()}
@@ -62,6 +65,7 @@ def folder_calendar(user_id:int,year:int,month:int):
             cur.execute("""SELECT DISTINCT COALESCE(abandoned_at,rewarded_at,completed_at)::date AS d
               FROM user_task_progress
               WHERE user_id=%s AND status IN ('completed','claimable','abandoned','rewarded')
+                AND (status != 'abandoned' OR abandon_reason != 'preparation_exit')
                 AND EXTRACT(YEAR FROM COALESCE(abandoned_at,rewarded_at,completed_at))=%s
                 AND EXTRACT(MONTH FROM COALESCE(abandoned_at,rewarded_at,completed_at))=%s""",
               (user_id,year,month))
