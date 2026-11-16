@@ -29,12 +29,13 @@
   <section class="panel form-card">
     <div class="section-title"><div class="step-badge">03</div><div><h2>運動與感測</h2><p>設定玩家要做什麼，以及使用什麼感測方式</p></div></div>
     <div class="form-grid three">
-      <label><span>運動類型</span><input name="exercise_type" value="{{ task.exercise_type or '' }}" placeholder="Grip"></label>
+      <label><span>運動項目 *</span><select name="exercise_id" required><option value="" {% if not task.exercise_id %}selected{% endif %} disabled>請選擇運動項目</option>{% for e in exercises %}<option value="{{ e.exercise_id }}" {% if task.exercise_id == e.exercise_id %}selected{% endif %}>{{ e.exercise_name }}（{{ e.recognition_key or e.exercise_key }}｜{{ '手機' if e.input_type == 'phone_imu' else '感測球 ' ~ (e.default_required_ball_count or 1) ~ ' 顆' }}｜場景 {{ e.exercise_scene_key }}）</option>{% endfor %}</select><small class="muted-line">辨識動作、感測方式、球數、進哪個運動場景都由這裡決定。</small></label>
+      <label><span>運動類型（顯示用）</span><input name="exercise_type" value="{{ task.exercise_type or '' }}" placeholder="Grip"></label>
       <label><span>目標類型</span><select name="goal_type"><option value="count" {% if task.goal_type != 'time' %}selected{% endif %}>次數（count）</option><option value="time" {% if task.goal_type == 'time' %}selected{% endif %}>時間（time）</option></select></label>
       <label><span>目標次數</span><input type="number" min="0" name="target_count" value="{{ task.target_count if task.target_count is not none else '' }}"></label>
       <label><span>目標秒數</span><input type="number" min="0" name="target_seconds" value="{{ task.target_seconds if task.target_seconds is not none else '' }}"></label>
       <label><span>輸入需求</span><select name="input_requirement">{% for value, label in [('ball_required','一定要感測球'),('ball_or_imu','感測球或手機'),('imu_required','一定要手機感測器'),('both_required','球 + 手機（保留）')] %}<option value="{{ value }}" {% if task.input_requirement == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
-      <label><span>需要球數</span><input type="number" min="0" name="required_ball_count" value="{{ task.required_ball_count or 0 }}"></label>
+      <label><span>需要球數（以運動項目為準）</span><input type="number" min="0" name="required_ball_count" value="{{ task.required_ball_count or 0 }}"></label>
     </div>
   </section>
 

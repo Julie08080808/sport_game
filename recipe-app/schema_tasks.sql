@@ -149,7 +149,8 @@ CREATE TABLE IF NOT EXISTS task_story_steps (
     story_variant VARCHAR(10) NOT NULL DEFAULT 'A',
     story_phase VARCHAR(20) NOT NULL DEFAULT 'offer', -- intro | offer (目前程式碼只用到這兩種)
     step_order INTEGER NOT NULL DEFAULT 0,
-    dialogue_text TEXT
+    dialogue_text TEXT,
+    demo_video_key VARCHAR(255)
 );
 
 -- ============================================================

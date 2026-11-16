@@ -5,6 +5,7 @@
 from fastapi import APIRouter, HTTPException, Form
 from models import user_model, player_model
 from services.exercise_rules import RuleError
+from services import auth_service
 import logging
 
 
@@ -38,6 +39,7 @@ def login(username: str = Form(...), password: str = Form(...)):
 
     uid = user['user_id']
     player_data = _player(uid)
+    token = auth_service.create_session(uid)
 
     print(f"[登入驗證成功] 玩家 UID: {uid}，資料庫數據已打包回傳 Unity")
     print("="*50 + "\n")
@@ -46,7 +48,8 @@ def login(username: str = Form(...), password: str = Form(...)):
         "success": True,
         "user_id": uid,
         "message": "登入成功",
-        "player": player_data
+        "player": player_data,
+        "token": token
     }
 
 

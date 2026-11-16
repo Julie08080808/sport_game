@@ -33,8 +33,10 @@ def list_tasks(user_id:int):
 
 @router.get('/folder')
 def folder(user_id:int,date:Optional[str]=None):
-    # 資料夾＝歷史紀錄：query 帶 date(YYYY-MM-DD) 查某一天的完成/放棄紀錄，不帶 date 預設查今天。
-    # 待領獎的任務(completed/claimable)不受 date 篩選，不管哪天都會出現，直到玩家領取為止。
+    # 資料夾＝歷史紀錄＋進行中任務：query 帶 date(YYYY-MM-DD) 查某一天的完成/放棄紀錄，不帶 date 預設查今天。
+    # 待領獎的任務(completed/claimable)跟還在進行中的(accepted/in_progress/interrupted)都不受日期篩選，
+    # 一直顯示到玩家處理完為止——can_resume/progress_will_reset 就是給這些還在進行中的任務用的，
+    # 玩家被 NPC 對話導去「我的任務」資料夾續做，資料夾不能讓這些任務憑空消失。
     with db_transaction() as conn:
         with conn.cursor() as cur:
             expire_stale_progress(cur,user_id)
@@ -48,7 +50,7 @@ def folder(user_id:int,date:Optional[str]=None):
                  AND CURRENT_TIMESTAMP - COALESCE(p.last_progress_at,p.accepted_at) > INTERVAL '1 hour') AS progress_will_reset
               FROM user_task_progress p JOIN tasks t USING(task_id)
               WHERE p.user_id=%s AND (
-                p.status IN ('completed','claimable')
+                p.status IN ('accepted','in_progress','interrupted','completed','claimable')
                 OR (
                   COALESCE(p.abandoned_at,p.rewarded_at,p.completed_at)::date = COALESCE(%s::date,CURRENT_DATE)
                   AND p.abandon_reason != 'preparation_exit'

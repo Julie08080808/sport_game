@@ -22,6 +22,8 @@ from controllers import (
     npc_controller,
     quiz_controller,
     shop_controller,
+    assistant_controller,
+    profile_controller,
 )
 import os
 
@@ -111,6 +113,8 @@ app.include_router(task_controller.router)
 reward_worker.install(app)
 app.include_router(quiz_controller.router)
 app.include_router(shop_controller.router)
+app.include_router(assistant_controller.router)
+app.include_router(profile_controller.router)
 
 
 # TTS
@@ -184,6 +188,12 @@ else:
 
 @app.get("/")
 def serve_index():
+    return FileResponse("views/index.html")
+
+
+# Unity 料理鼠「食譜」用 WebView 開這個路徑(內容同首頁)
+@app.get("/recipe")
+def serve_recipe():
     return FileResponse("views/index.html")
 
 

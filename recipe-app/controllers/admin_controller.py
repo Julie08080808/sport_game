@@ -31,8 +31,11 @@ def _task_form_data(
     required_player_level, expire_policy,
     expire_after_seconds, allow_pause,
     allow_resume, is_initial_unlock, is_active,
+    exercise_id=None,
 ):
     return {
+        # 任務實際要用哪個運動(辨識動作、感測方式、球數、運動場景)都看 exercise_id 對應的運動定義。
+        "exercise_id": _int_or_none(exercise_id),
         "task_key": task_key.strip(),
         "task_name": task_name.strip(),
         "task_description": _none_if_blank(task_description),
@@ -101,6 +104,7 @@ def create_task(
     task_mode: str = Form(...),
     scene_id: int = Form(...),
     npc_id: str = Form(""),
+    exercise_id: str = Form(""),
     exercise_type: str = Form(""),
     goal_type: str = Form(...),
     target_count: str = Form(""),
@@ -130,6 +134,7 @@ def create_task(
         required_player_level, expire_policy,
         expire_after_seconds, allow_pause,
         allow_resume, is_initial_unlock, is_active,
+        exercise_id=exercise_id,
     )
     task_id = admin_model.create_task(data)
     return RedirectResponse(url=f"/admin/tasks/{task_id}/edit?saved=1", status_code=303)
@@ -166,6 +171,7 @@ def update_task(
     task_mode: str = Form(...),
     scene_id: int = Form(...),
     npc_id: str = Form(""),
+    exercise_id: str = Form(""),
     exercise_type: str = Form(""),
     goal_type: str = Form(...),
     target_count: str = Form(""),
@@ -195,6 +201,7 @@ def update_task(
         required_player_level, expire_policy,
         expire_after_seconds, allow_pause,
         allow_resume, is_initial_unlock, is_active,
+        exercise_id=exercise_id,
     )
     admin_model.update_task(task_id, data)
     return RedirectResponse(url=f"/admin/tasks/{task_id}/edit?saved=1", status_code=303)

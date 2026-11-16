@@ -131,7 +131,17 @@ def get_task_form_options():
                 ORDER BY scene_id, npc_id;
             """)
             npcs = _fetchall(cur)
-            return {"scenes": scenes, "npcs": npcs}
+
+            # 任務表單的「運動項目」下拉選單；任務的辨識動作、感測方式、球數、運動場景都來自這裡。
+            cur.execute("""
+                SELECT exercise_id, exercise_key, exercise_name, recognition_key,
+                       input_type, default_required_ball_count, exercise_scene_key
+                FROM exercise_definitions
+                WHERE is_active = TRUE
+                ORDER BY exercise_id;
+            """)
+            exercises = _fetchall(cur)
+            return {"scenes": scenes, "npcs": npcs, "exercises": exercises}
     finally:
         conn.close()
 
@@ -207,7 +217,7 @@ def create_task(data: dict):
                 INSERT INTO tasks (
                     task_key, task_name, task_description,
                     task_category, task_type, task_mode,
-                    scene_id, exercise_type, goal_type,
+                    scene_id, exercise_id, exercise_type, goal_type,
                     target_count, target_seconds,
                     input_requirement, required_ball_count,
                     recurrence_type, allow_pause, allow_resume,
@@ -218,7 +228,7 @@ def create_task(data: dict):
                 VALUES (
                     %(task_key)s, %(task_name)s, %(task_description)s,
                     %(task_category)s, %(task_type)s, %(task_mode)s,
-                    %(scene_id)s, %(exercise_type)s, %(goal_type)s,
+                    %(scene_id)s, %(exercise_id)s, %(exercise_type)s, %(goal_type)s,
                     %(target_count)s, %(target_seconds)s,
                     %(input_requirement)s, %(required_ball_count)s,
                     %(recurrence_type)s, %(allow_pause)s, %(allow_resume)s,
@@ -255,6 +265,7 @@ def update_task(task_id: int, data: dict):
                     task_type = %(task_type)s,
                     task_mode = %(task_mode)s,
                     scene_id = %(scene_id)s,
+                    exercise_id = COALESCE(%(exercise_id)s, exercise_id),
                     exercise_type = %(exercise_type)s,
                     goal_type = %(goal_type)s,
                     target_count = %(target_count)s,
