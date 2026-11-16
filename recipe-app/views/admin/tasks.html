@@ -18,7 +18,7 @@
   <td><span>{{ task.input_requirement }}</span>{% if task.required_ball_count %}<span class="muted-line">{{ task.required_ball_count }} 顆球</span>{% endif %}</td>
   <td><span class="tag pale">{{ task.recurrence_type }}</span></td>
   <td><strong>{{ task.npc_name or '未指定' }}</strong><span class="muted-line">{{ task.scene_name or ('Scene #' ~ task.scene_id) }}</span></td>
-  <td>{% if task.is_active %}<span class="status-chip status-active">啟用</span>{% else %}<span class="status-chip status-disabled">停用</span>{% endif %}</td>
+  <td>{% if task.is_active %}<span class="status-chip status-active">啟用</span>{% else %}<span class="status-chip status-disabled">停用</span>{% endif %}{% if not task.is_listed %}<span class="muted-line">⚠ NPC 不發放</span>{% endif %}</td>
   <td class="right"><div class="row-actions"><a class="mini-btn" href="/admin/tasks/{{ task.task_id }}/edit">編輯</a><form method="post" action="/admin/tasks/{{ task.task_id }}/toggle"><button class="mini-btn secondary" type="submit">{% if task.is_active %}停用{% else %}啟用{% endif %}</button></form></div></td>
 </tr>
 {% else %}<tr><td colspan="8"><div class="empty-state">找不到任務</div></td></tr>{% endfor %}

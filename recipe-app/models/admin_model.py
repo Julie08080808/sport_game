@@ -95,6 +95,7 @@ def list_tasks(keyword: str = ""):
                     s.scene_name,
                     t.is_initial_unlock,
                     t.is_active,
+                    t.is_listed,
                     n.npc_id,
                     n.npc_name
                 FROM tasks t
@@ -223,7 +224,7 @@ def create_task(data: dict):
                     recurrence_type, allow_pause, allow_resume,
                     reward_player_exp, reward_scene_exp, reward_money,
                     required_player_level, expire_policy, expire_after_seconds,
-                    is_initial_unlock, is_active
+                    is_initial_unlock, is_active, is_listed
                 )
                 VALUES (
                     %(task_key)s, %(task_name)s, %(task_description)s,
@@ -234,7 +235,7 @@ def create_task(data: dict):
                     %(recurrence_type)s, %(allow_pause)s, %(allow_resume)s,
                     %(reward_player_exp)s, %(reward_scene_exp)s, %(reward_money)s,
                     %(required_player_level)s, %(expire_policy)s, %(expire_after_seconds)s,
-                    %(is_initial_unlock)s, %(is_active)s
+                    %(is_initial_unlock)s, %(is_active)s, %(is_listed)s
                 )
                 RETURNING task_id;
             """, data)
@@ -282,7 +283,8 @@ def update_task(task_id: int, data: dict):
                     expire_policy = %(expire_policy)s,
                     expire_after_seconds = %(expire_after_seconds)s,
                     is_initial_unlock = %(is_initial_unlock)s,
-                    is_active = %(is_active)s
+                    is_active = %(is_active)s,
+                    is_listed = %(is_listed)s
                 WHERE task_id = %(task_id)s;
             """, {**data, "task_id": task_id})
             _set_npc_assignment(cur, task_id, data.get("npc_id"))

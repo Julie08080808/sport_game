@@ -51,6 +51,7 @@
       <label class="check-card"><input type="checkbox" name="allow_resume" value="1" {% if task.allow_resume or mode == 'new' %}checked{% endif %}><div><strong>允許繼續</strong><span>離開後可以沿用原本進度</span></div></label>
       <label class="check-card"><input type="checkbox" name="is_initial_unlock" value="1" {% if task.is_initial_unlock %}checked{% endif %}><div><strong>初始解鎖</strong><span>新舊玩家直接取得此任務</span></div></label>
       <label class="check-card"><input type="checkbox" name="is_active" value="1" {% if task.is_active or mode == 'new' %}checked{% endif %}><div><strong>啟用任務</strong><span>關閉後 NPC 不會再發送</span></div></label>
+      <label class="check-card"><input type="checkbox" name="is_listed" value="1" {% if task.is_listed or mode == 'new' %}checked{% endif %}><div><strong>NPC 主動發放</strong><span>取消勾選時 NPC 不會提供這個任務，已接的進度仍可繼續</span></div></label>
     </div>
   </section>
 

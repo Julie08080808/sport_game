@@ -32,6 +32,7 @@ def _task_form_data(
     expire_after_seconds, allow_pause,
     allow_resume, is_initial_unlock, is_active,
     exercise_id=None,
+    is_listed=None,
 ):
     return {
         # 任務實際要用哪個運動(辨識動作、感測方式、球數、運動場景)都看 exercise_id 對應的運動定義。
@@ -61,6 +62,8 @@ def _task_form_data(
         "allow_resume": bool(allow_resume),
         "is_initial_unlock": bool(is_initial_unlock),
         "is_active": bool(is_active),
+        # 不勾選時 NPC 不會主動發這個任務(已接的進度仍可繼續)。
+        "is_listed": bool(is_listed),
     }
 
 
@@ -122,6 +125,7 @@ def create_task(
     allow_resume: str | None = Form(None),
     is_initial_unlock: str | None = Form(None),
     is_active: str | None = Form(None),
+    is_listed: str | None = Form(None),
 ):
     data = _task_form_data(
         task_key, task_name, task_description,
@@ -135,6 +139,7 @@ def create_task(
         expire_after_seconds, allow_pause,
         allow_resume, is_initial_unlock, is_active,
         exercise_id=exercise_id,
+        is_listed=is_listed,
     )
     task_id = admin_model.create_task(data)
     return RedirectResponse(url=f"/admin/tasks/{task_id}/edit?saved=1", status_code=303)
@@ -189,6 +194,7 @@ def update_task(
     allow_resume: str | None = Form(None),
     is_initial_unlock: str | None = Form(None),
     is_active: str | None = Form(None),
+    is_listed: str | None = Form(None),
 ):
     data = _task_form_data(
         task_key, task_name, task_description,
@@ -202,6 +208,7 @@ def update_task(
         expire_after_seconds, allow_pause,
         allow_resume, is_initial_unlock, is_active,
         exercise_id=exercise_id,
+        is_listed=is_listed,
     )
     admin_model.update_task(task_id, data)
     return RedirectResponse(url=f"/admin/tasks/{task_id}/edit?saved=1", status_code=303)
