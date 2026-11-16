@@ -7,9 +7,10 @@
 --   計次 MONKEY_GRIP_001          採松果        山林猴  手按壓    10 次
 --   計次 MITU_BICEP_CURL_001      提水澆菜      咪兔    二頭彎舉  10 次
 --   計時 MONKEY_GRIP_TIME_001     抓緊藤蔓      山林猴  手按壓    60 秒
---   計時 MITU_HAND_RAISE_TIME_001 趕走小麻雀    咪兔    抬手      60 秒
+--   計時 MITU_HAND_RAISE_TIME_001 採茭白筍      咪兔    抬手      60 秒
 --   計時 MONKEY_STEP_TIME_001     森林散步      山林猴  踏步      90 秒
---   計時 MITU_BICEP_CURL_TIME_001 搬運大南瓜    咪兔    二頭彎舉  60 秒
+--   計時 MITU_BICEP_CURL_TIME_001 搬地瓜        咪兔    二頭彎舉  60 秒
+--   （MONKEY_GRIP_001、MONKEY_GRIP_TIME_001 還沒有運動畫面，新增後由 T3 停用）
 --   計時 CAT_HAND_PRESS_TIME_001  穩住撈網      姜太喵  雙手按壓  60 秒
 --   計時 CAT_FOOT_PRESS_TIME_001  讓水車一直轉  姜太喵  踩球      60 秒
 --
@@ -54,11 +55,11 @@ BEGIN
              'MITU_HAND_RAISE_001', 'FARM_MITU', 'HAND_BICEP_CURL', 'BicepCurl', 'count', 10, 10, 1, 5),
             ('MONKEY_GRIP_TIME_001', '抓緊藤蔓', '和山林猴一起持續握壓感測球 60 秒，抓緊藤蔓過小溪。',
              'CAT_GRIP_001', 'FOREST_SHANLINHOU', 'HAND_GRIP', 'Grip', 'time', 60, 10, 1, 5),
-            ('MITU_HAND_RAISE_TIME_001', '趕走小麻雀', '和咪兔一起抬手揮動 60 秒，把偷吃番茄的小麻雀趕走。',
+            ('MITU_HAND_RAISE_TIME_001', '採茭白筍', '和咪兔一起抬手 60 秒，把水田裡的茭白筍採收起來。',
              'MITU_HAND_RAISE_001', 'FARM_MITU', 'HAND_RAISE', 'Raise', 'time', 60, 10, 1, 5),
             ('MONKEY_STEP_TIME_001', '森林散步', '和山林猴一起用舒服的速度踏步 90 秒，在森林裡散散步。',
              'MONKEY_STEP_001', 'FOREST_SHANLINHOU', 'LEG_STEP', 'Step', 'time', 90, 15, 1, 8),
-            ('MITU_BICEP_CURL_TIME_001', '搬運大南瓜', '和咪兔一起持續做二頭彎舉 60 秒，把大南瓜搬進倉庫。',
+            ('MITU_BICEP_CURL_TIME_001', '搬地瓜', '和咪兔一起持續做二頭彎舉 60 秒，把剛挖出來的地瓜搬進倉庫。',
              'MITU_HAND_RAISE_001', 'FARM_MITU', 'HAND_BICEP_CURL', 'BicepCurl', 'time', 60, 10, 1, 5),
             ('CAT_HAND_PRESS_TIME_001', '穩住撈網', '和姜太喵一起用雙手按壓感測球 60 秒，穩住撈網撈大魚。',
              'CAT_HAND_PRESS_001', 'POND_JIANGTAIMIAO', 'HAND_DUAL_PRESS', 'HandPress', 'time', 60, 10, 1, 5),
@@ -147,6 +148,37 @@ BEGIN
 END $$;
 
 -- ------------------------------------------------------------
+-- T1b：文案改版（2026-11-17）
+--   趕走小麻雀 → 採茭白筍（沿用抬手挑戰的茭白筍運動畫面）
+--   搬運大南瓜 → 搬地瓜（配合運動畫面）
+-- 已經跑過舊版本檔案的資料庫：把舊名稱與舊台詞原地換成新版，避免 T2 再多寫一份。
+-- ------------------------------------------------------------
+UPDATE tasks SET task_name = '採茭白筍',
+                 task_description = '和咪兔一起抬手 60 秒，把水田裡的茭白筍採收起來。'
+WHERE task_key = 'MITU_HAND_RAISE_TIME_001' AND task_name = '趕走小麻雀';
+
+UPDATE tasks SET task_name = '搬地瓜',
+                 task_description = '和咪兔一起持續做二頭彎舉 60 秒，把剛挖出來的地瓜搬進倉庫。'
+WHERE task_key = 'MITU_BICEP_CURL_TIME_001' AND task_name = '搬運大南瓜';
+
+UPDATE task_story_steps s
+SET dialogue_text = v.new_text
+FROM tasks t,
+     (VALUES
+        ('MITU_HAND_RAISE_TIME_001', '哎呀～小麻雀又來偷吃番茄了！', '水田裡的茭白筍長得又白又胖，該採收囉！'),
+        ('MITU_HAND_RAISE_TIME_001', '跟我一起抬起手揮一揮 60 秒，把小麻雀嚇跑吧！慢慢來就好。', '跟我一起慢慢抬手 60 秒，把茭白筍一根根採起來吧！'),
+        ('MITU_HAND_RAISE_TIME_001', '揮得好！小麻雀開始飛走囉～', '採得好！籃子裡的茭白筍越來越多了～'),
+        ('MITU_HAND_RAISE_TIME_001', '剩一點點時間，小麻雀快飛光了！', '再一下下，最後幾根茭白筍就採完了！'),
+        ('MITU_HAND_RAISE_TIME_001', '小麻雀都飛走啦！番茄保住了！', '茭白筍全部採好了！今天的晚餐有著落囉！'),
+        ('MITU_BICEP_CURL_TIME_001', '今年的南瓜長得好大，我一個人搬不動耶～', '地瓜田大豐收！可是一籃一籃好重，我一個人搬不動耶～'),
+        ('MITU_BICEP_CURL_TIME_001', '拿著手機持續做彎舉動作 60 秒，一起把南瓜搬進倉庫吧！', '拿著手機持續做彎舉動作 60 秒，一起把地瓜搬進倉庫吧！'),
+        ('MITU_BICEP_CURL_TIME_001', '嘿咻嘿咻～南瓜慢慢移動了！', '嘿咻嘿咻～一籃地瓜搬好了！'),
+        ('MITU_BICEP_CURL_TIME_001', '最後一顆南瓜，快搬進倉庫了！', '最後幾籃地瓜，快搬完囉！'),
+        ('MITU_BICEP_CURL_TIME_001', '南瓜全都搬好了！你真的好厲害！', '地瓜全都搬好了！你真的好厲害！')
+     ) AS v(task_key, old_text, new_text)
+WHERE t.task_key = v.task_key AND s.task_id = t.task_id AND s.dialogue_text = v.old_text;
+
+-- ------------------------------------------------------------
 -- T2：台詞
 -- ------------------------------------------------------------
 CREATE TEMP TABLE tmp_story_lines (
@@ -178,12 +210,12 @@ INSERT INTO tmp_story_lines VALUES
 ('MONKEY_GRIP_TIME_001', 'partial', 4, '快到對岸了，再撐一下下！'),
 ('MONKEY_GRIP_TIME_001', 'completed', 5, '成功過河啦！你抓得好穩！'),
 ('MONKEY_GRIP_TIME_001', 'rewarded', 6, '謝謝你陪我冒險，這個送給你！'),
--- 咪兔｜趕走小麻雀（計時）
-('MITU_HAND_RAISE_TIME_001', 'intro', 1, '哎呀～小麻雀又來偷吃番茄了！'),
-('MITU_HAND_RAISE_TIME_001', 'offer', 2, '跟我一起抬起手揮一揮 60 秒，把小麻雀嚇跑吧！慢慢來就好。'),
-('MITU_HAND_RAISE_TIME_001', 'partial', 3, '揮得好！小麻雀開始飛走囉～'),
-('MITU_HAND_RAISE_TIME_001', 'partial', 4, '剩一點點時間，小麻雀快飛光了！'),
-('MITU_HAND_RAISE_TIME_001', 'completed', 5, '小麻雀都飛走啦！番茄保住了！'),
+-- 咪兔｜採茭白筍（計時，沿用抬手挑戰的運動畫面）
+('MITU_HAND_RAISE_TIME_001', 'intro', 1, '水田裡的茭白筍長得又白又胖，該採收囉！'),
+('MITU_HAND_RAISE_TIME_001', 'offer', 2, '跟我一起慢慢抬手 60 秒，把茭白筍一根根採起來吧！'),
+('MITU_HAND_RAISE_TIME_001', 'partial', 3, '採得好！籃子裡的茭白筍越來越多了～'),
+('MITU_HAND_RAISE_TIME_001', 'partial', 4, '再一下下，最後幾根茭白筍就採完了！'),
+('MITU_HAND_RAISE_TIME_001', 'completed', 5, '茭白筍全部採好了！今天的晚餐有著落囉！'),
 ('MITU_HAND_RAISE_TIME_001', 'rewarded', 6, '多虧有你！這些是今天的謝禮～'),
 -- 山林猴｜森林散步（計時）
 ('MONKEY_STEP_TIME_001', 'intro', 1, '今天陽光好舒服，要不要一起在森林裡散散步？'),
@@ -192,12 +224,12 @@ INSERT INTO tmp_story_lines VALUES
 ('MONKEY_STEP_TIME_001', 'partial', 4, '前面就是終點啦，慢慢走～'),
 ('MONKEY_STEP_TIME_001', 'completed', 5, '走完一圈啦！森林的空氣真好！'),
 ('MONKEY_STEP_TIME_001', 'rewarded', 6, '謝謝你陪我散步，這是今天的紀念品！'),
--- 咪兔｜搬運大南瓜（計時）
-('MITU_BICEP_CURL_TIME_001', 'intro', 1, '今年的南瓜長得好大，我一個人搬不動耶～'),
-('MITU_BICEP_CURL_TIME_001', 'offer', 2, '拿著手機持續做彎舉動作 60 秒，一起把南瓜搬進倉庫吧！'),
-('MITU_BICEP_CURL_TIME_001', 'partial', 3, '嘿咻嘿咻～南瓜慢慢移動了！'),
-('MITU_BICEP_CURL_TIME_001', 'partial', 4, '最後一顆南瓜，快搬進倉庫了！'),
-('MITU_BICEP_CURL_TIME_001', 'completed', 5, '南瓜全都搬好了！你真的好厲害！'),
+-- 咪兔｜搬地瓜（計時）
+('MITU_BICEP_CURL_TIME_001', 'intro', 1, '地瓜田大豐收！可是一籃一籃好重，我一個人搬不動耶～'),
+('MITU_BICEP_CURL_TIME_001', 'offer', 2, '拿著手機持續做彎舉動作 60 秒，一起把地瓜搬進倉庫吧！'),
+('MITU_BICEP_CURL_TIME_001', 'partial', 3, '嘿咻嘿咻～一籃地瓜搬好了！'),
+('MITU_BICEP_CURL_TIME_001', 'partial', 4, '最後幾籃地瓜，快搬完囉！'),
+('MITU_BICEP_CURL_TIME_001', 'completed', 5, '地瓜全都搬好了！你真的好厲害！'),
 ('MITU_BICEP_CURL_TIME_001', 'rewarded', 6, '這是農場的豐收禮，請收下！'),
 -- 姜太喵｜穩住撈網（計時）
 ('CAT_HAND_PRESS_TIME_001', 'intro', 1, '喵嗚～有一條大魚游過來了！撈網要拿穩才行！'),
@@ -273,6 +305,13 @@ BEGIN
 
     RAISE NOTICE '[T2] 已寫入 % 句台詞', inserted;
 END $$;
+
+-- ------------------------------------------------------------
+-- T3：山林猴的握球任務還沒有運動畫面，先停用（2026-11-17）
+--   任務、台詞都保留，畫面做好後到管理後台按「啟用」即可
+-- ------------------------------------------------------------
+UPDATE tasks SET is_active = FALSE
+WHERE task_key IN ('MONKEY_GRIP_001', 'MONKEY_GRIP_TIME_001') AND is_active;
 
 -- 執行後檢查：每個 NPC 目前可發的任務
 SELECT n.npc_name, t.task_key, t.task_name, t.goal_type,
