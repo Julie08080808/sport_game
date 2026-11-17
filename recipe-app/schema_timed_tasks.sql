@@ -5,7 +5,7 @@
 --              CAT_HAND_PRESS_001 雙手按壓計次、CAT_FOOT_PRESS_001 踩球計次
 -- 本檔新增：
 --   計次 MONKEY_GRIP_001          採松果        山林猴  手按壓    10 次
---   計次 MITU_BICEP_CURL_001      提水澆菜      咪兔    二頭彎舉  10 次
+--   計次 MITU_BICEP_CURL_001      搬地瓜        咪兔    二頭彎舉  10 次
 --   計時 MONKEY_GRIP_TIME_001     抓緊藤蔓      山林猴  手按壓    60 秒
 --   計時 MITU_HAND_RAISE_TIME_001 採茭白筍      咪兔    抬手      60 秒
 --   計時 MONKEY_STEP_TIME_001     森林散步      山林猴  踏步      90 秒
@@ -51,7 +51,7 @@ BEGIN
         SELECT * FROM (VALUES
             ('MONKEY_GRIP_001', '採松果', '和山林猴一起握壓感測球撿松果，完成 10 次。',
              'CAT_GRIP_001', 'FOREST_SHANLINHOU', 'HAND_GRIP', 'Grip', 'count', 10, 10, 1, 5),
-            ('MITU_BICEP_CURL_001', '提水澆菜', '和咪兔一起做二頭彎舉提水澆菜，完成 10 次。',
+            ('MITU_BICEP_CURL_001', '搬地瓜', '和咪兔一起做二頭彎舉，把 10 籃地瓜搬進倉庫。',
              'MITU_HAND_RAISE_001', 'FARM_MITU', 'HAND_BICEP_CURL', 'BicepCurl', 'count', 10, 10, 1, 5),
             ('MONKEY_GRIP_TIME_001', '抓緊藤蔓', '和山林猴一起持續握壓感測球 60 秒，抓緊藤蔓過小溪。',
              'CAT_GRIP_001', 'FOREST_SHANLINHOU', 'HAND_GRIP', 'Grip', 'time', 60, 10, 1, 5),
@@ -161,6 +161,10 @@ UPDATE tasks SET task_name = '搬地瓜',
                  task_description = '和咪兔一起持續做二頭彎舉 60 秒，把剛挖出來的地瓜搬進倉庫。'
 WHERE task_key = 'MITU_BICEP_CURL_TIME_001' AND task_name = '搬運大南瓜';
 
+UPDATE tasks SET task_name = '搬地瓜',
+                 task_description = '和咪兔一起做二頭彎舉，把 10 籃地瓜搬進倉庫。'
+WHERE task_key = 'MITU_BICEP_CURL_001' AND task_name = '提水澆菜';
+
 UPDATE task_story_steps s
 SET dialogue_text = v.new_text
 FROM tasks t,
@@ -174,7 +178,13 @@ FROM tasks t,
         ('MITU_BICEP_CURL_TIME_001', '拿著手機持續做彎舉動作 60 秒，一起把南瓜搬進倉庫吧！', '拿著手機持續做彎舉動作 60 秒，一起把地瓜搬進倉庫吧！'),
         ('MITU_BICEP_CURL_TIME_001', '嘿咻嘿咻～南瓜慢慢移動了！', '嘿咻嘿咻～一籃地瓜搬好了！'),
         ('MITU_BICEP_CURL_TIME_001', '最後一顆南瓜，快搬進倉庫了！', '最後幾籃地瓜，快搬完囉！'),
-        ('MITU_BICEP_CURL_TIME_001', '南瓜全都搬好了！你真的好厲害！', '地瓜全都搬好了！你真的好厲害！')
+        ('MITU_BICEP_CURL_TIME_001', '南瓜全都搬好了！你真的好厲害！', '地瓜全都搬好了！你真的好厲害！'),
+        ('MITU_BICEP_CURL_001', '菜園的小白菜口渴了，可以幫我提水澆一澆嗎？', '地瓜挖好了，一籃一籃堆在田邊，可以幫我搬嗎？'),
+        ('MITU_BICEP_CURL_001', '拿著手機慢慢彎起手臂，就像提起水桶，一起提 10 次吧！', '拿著手機慢慢彎起手臂，每做一次就搬一籃，一起搬 10 籃吧！'),
+        ('MITU_BICEP_CURL_001', '提起來、放下去～菜菜們好開心！', '嘿咻～已經搬一半囉！'),
+        ('MITU_BICEP_CURL_001', '最後幾桶水了，菜菜在等你喔！', '剩最後幾籃，快搬完了！'),
+        ('MITU_BICEP_CURL_001', '澆完水了！小白菜都抬起頭來了！', '10 籃地瓜都搬進倉庫了！謝謝你！'),
+        ('MITU_BICEP_CURL_001', '謝謝你幫忙照顧菜園，這是給你的謝禮！', '謝謝你幫忙搬地瓜，這是給你的謝禮！')
      ) AS v(task_key, old_text, new_text)
 WHERE t.task_key = v.task_key AND s.task_id = t.task_id AND s.dialogue_text = v.old_text;
 
@@ -196,13 +206,13 @@ INSERT INTO tmp_story_lines VALUES
 ('MONKEY_GRIP_001', 'partial', 4, '再幾顆就滿籃了，加油！'),
 ('MONKEY_GRIP_001', 'completed', 5, '哇！籃子都滿了！你的手好有力氣！'),
 ('MONKEY_GRIP_001', 'rewarded', 6, '這是森林的小禮物，謝謝你幫忙！'),
--- 咪兔｜提水澆菜（計次）
-('MITU_BICEP_CURL_001', 'intro', 1, '菜園的小白菜口渴了，可以幫我提水澆一澆嗎？'),
-('MITU_BICEP_CURL_001', 'offer', 2, '拿著手機慢慢彎起手臂，就像提起水桶，一起提 10 次吧！'),
-('MITU_BICEP_CURL_001', 'partial', 3, '提起來、放下去～菜菜們好開心！'),
-('MITU_BICEP_CURL_001', 'partial', 4, '最後幾桶水了，菜菜在等你喔！'),
-('MITU_BICEP_CURL_001', 'completed', 5, '澆完水了！小白菜都抬起頭來了！'),
-('MITU_BICEP_CURL_001', 'rewarded', 6, '謝謝你幫忙照顧菜園，這是給你的謝禮！'),
+-- 咪兔｜搬地瓜（計次）
+('MITU_BICEP_CURL_001', 'intro', 1, '地瓜挖好了，一籃一籃堆在田邊，可以幫我搬嗎？'),
+('MITU_BICEP_CURL_001', 'offer', 2, '拿著手機慢慢彎起手臂，每做一次就搬一籃，一起搬 10 籃吧！'),
+('MITU_BICEP_CURL_001', 'partial', 3, '嘿咻～已經搬一半囉！'),
+('MITU_BICEP_CURL_001', 'partial', 4, '剩最後幾籃，快搬完了！'),
+('MITU_BICEP_CURL_001', 'completed', 5, '10 籃地瓜都搬進倉庫了！謝謝你！'),
+('MITU_BICEP_CURL_001', 'rewarded', 6, '謝謝你幫忙搬地瓜，這是給你的謝禮！'),
 -- 山林猴｜抓緊藤蔓（計時）
 ('MONKEY_GRIP_TIME_001', 'intro', 1, '前面要過小溪了，我們要抓著藤蔓慢慢走過去！'),
 ('MONKEY_GRIP_TIME_001', 'offer', 2, '持續握著感測球 60 秒，就像抓緊藤蔓一樣，不用急喔！'),
