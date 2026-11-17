@@ -270,7 +270,7 @@ def call_worker(payload: dict) -> dict:
     """POST 到阿明的 Cloudflare Worker。逾時或失敗不重試，回固定話。"""
     if not WORKER_APP_SECRET:
         log.error("WORKER_APP_SECRET 未設定，無法呼叫阿明（請在 .env 補上）")
-        return {"reply": FALLBACK_REPLY, "factId": ""}
+        return {"reply": FALLBACK_REPLY, "factId": "", "safetyLevel": "none"}
 
     try:
         resp = httpx.post(
@@ -286,12 +286,13 @@ def call_worker(payload: dict) -> dict:
         data = resp.json()
     except Exception:
         log.exception("呼叫阿明 Worker 失敗")
-        return {"reply": FALLBACK_REPLY, "factId": ""}
+        return {"reply": FALLBACK_REPLY, "factId": "", "safetyLevel": "none"}
 
     # reply 一個字都不能改，原樣轉給 App。
     return {
         "reply": data.get("reply", FALLBACK_REPLY),
         "factId": data.get("factId", ""),
+        "safetyLevel": data.get("safetyLevel", "none"),
     }
 
 

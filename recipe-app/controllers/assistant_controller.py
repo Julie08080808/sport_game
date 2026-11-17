@@ -55,4 +55,4 @@ def chat(req: ChatRequest, user_id: int = Depends(require_user_id)):
     except Exception:
         log.exception("組裝阿明請求失敗 user_id=%s", user_id)
         # 第 5 步：查詢或組裝本身出問題，也不讓長輩看到錯誤訊息或 500。
-        return {"reply": assistant_model.FALLBACK_REPLY, "factId": ""}
+        return {"reply": assistant_model.FALLBACK_REPLY, "factId": "", "safetyLevel": "none"}
