@@ -34,3 +34,6 @@ Thumbs.db
 
 # 資料庫備份（含使用者資料，不上傳）
 *.dump
+
+# Google TTS 金鑰（絕不可上傳）
+google-key*.json
