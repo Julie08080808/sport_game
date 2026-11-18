@@ -245,7 +245,36 @@ function loadQuestion(idx) {
   } else {
     $fillPanel.classList.add('hidden-panel');
   }
+
+  sizeMoldGrids(q);
 }
+
+// 把左右兩個格子算成實際的 px 寬高，讓格子永遠是正方形、
+// 並且整組絕對不會超出 .mold-panel 可用的空間（不會跟上下文字重疊）。
+function sizeMoldGrids(q) {
+  const GAP   = 5; // 需跟 CSS 的 .mold-grid { gap: 5px } 一致
+  const panel = $leftGrid.parentElement; // .mold-panel.left
+  const availW = panel.clientWidth;
+  const availH = panel.clientHeight;
+  if (availW <= 0 || availH <= 0) return;
+
+  const cellByW = (availW - (q.cols - 1) * GAP) / q.cols;
+  const cellByH = (availH - (q.rows - 1) * GAP) / q.rows;
+  const cell    = Math.max(8, Math.floor(Math.min(cellByW, cellByH)));
+
+  const gridW = q.cols * cell + (q.cols - 1) * GAP;
+  const gridH = q.rows * cell + (q.rows - 1) * GAP;
+
+  [$leftGrid, $rightGrid].forEach($grid => {
+    $grid.style.width  = `${gridW}px`;
+    $grid.style.height = `${gridH}px`;
+  });
+}
+
+window.addEventListener('resize', () => {
+  const q = state.questions && state.questions[state.qIdx];
+  if (q) sizeMoldGrids(q);
+});
 
 // ─── Filling Buttons ──────────────────────────────────────────────────────────
 

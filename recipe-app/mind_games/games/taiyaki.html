@@ -4,13 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>埔里特產鯛魚燒</title>
-  <link rel="stylesheet" href="../css/style.css?v=17">
+  <link rel="stylesheet" href="../css/style.css?v=18">
   <style>
     /* ── Mobile / Unity WebView overrides ── */
     body { font-size: 16px; }
 
     .game-page {
-      padding: calc(8px + 2vh) 8px calc(16px + 7vh);
+      padding: calc(8px + 2vh) 8px calc(8px + 1vh);
     }
 
     .game-header { margin-bottom: 8px; gap: 8px; }
@@ -35,6 +35,7 @@
       font-weight: 700;
       text-align: center;
       flex-shrink: 0;
+      margin-bottom: 17px;
     }
 
     /* ── Mold Container ── */
@@ -45,10 +46,10 @@
       box-shadow: var(--sh-md);
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 28px;
       flex: 1;
       min-height: 0;
-      justify-content: center;
+      justify-content: space-between;
     }
 
     .mold-title-row {
@@ -64,19 +65,28 @@
     /* Two panels + hinge wrapper */
     .mold-panels {
       display: flex;
-      align-items: center;
+      align-items: stretch;
       justify-content: center;
+      flex: 1;
+      min-height: 0;
     }
 
     /* Each panel fills 50% minus hinge */
     .mold-panel {
       flex: 1;
       min-width: 0;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     .mold-panel.left  { border-right: none; }
     .mold-panel.right { border-left: none; }
 
-    /* Grid inside each panel */
+    /* Grid inside each panel; width/height are computed in px per-question by
+       sizeMoldGrids() in taiyaki.js (based on the panel's real available
+       space), so cells stay square and the whole grid never overflows the
+       panel even when a question has more rows (see taiyaki.js). */
     .mold-grid { display: grid; gap: 5px; }
 
     /* ── Mold Cell ── */
@@ -167,6 +177,7 @@
       color: var(--c-text-lt);
       font-style: italic;
       flex-shrink: 0;
+      margin-top: 12px;
     }
 
     /* ── Filling Selection Panel ── */
@@ -175,6 +186,7 @@
       border-radius: var(--r-lg);
       padding: 10px 10px;
       box-shadow: var(--sh-md);
+      margin-top: 25px;
     }
     .filling-panel-title {
       font-size: 13px;
@@ -401,6 +413,6 @@
   </div>
 
   <script src="/static/unity-bridge.js"></script>
-  <script src="../js/taiyaki.js?v=3"></script>
+  <script src="../js/taiyaki.js?v=4"></script>
 </body>
 </html>

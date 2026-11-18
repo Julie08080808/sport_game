@@ -376,8 +376,8 @@ button { cursor:pointer; font-family:inherit; border:none; outline:none; backgro
   justify-content: flex-start;
   overflow: hidden;
   text-align: center;
-  gap: clamp(8px, 2vh, 16px);
-  padding: 11vh 16px 10px;
+  gap: clamp(16px, 4.5vh, 40px);
+  padding: 6vh 16px 10px;
   min-height: 0;
 }
 .start-screen.hidden { display:none; }
@@ -510,7 +510,7 @@ button { cursor:pointer; font-family:inherit; border:none; outline:none; backgro
   text-align: center;
   animation: pop-in .35s cubic-bezier(.175,.885,.32,1.275);
   overflow: hidden;
-  margin-top: -40px;
+  margin-top: -90px;
 }
 
 .result-outcome {
