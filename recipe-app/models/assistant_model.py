@@ -4,10 +4,12 @@
 對應規格：AI助手後端說明.pdf（2026/11/07，規則版本 1104-k）、
 assistant_queries.sql、recipe_filter.sql。
 
-這一版的兩個前提（跟 assistant_queries.sql 開頭的說明一致）：
-1. user_profiles 沒有 is_on_medication，一律送 False。
-2. 食材過敏原補標沒做，所以有登記過敏原的長輩直接不給食譜候選，
-   不跑 fetch_recipe_candidates()。
+這一版的前提：
+1. 食材過敏原補標沒做，所以有登記過敏原的長輩直接不給食譜候選，
+   不跑 get_recipe_candidates()。
+2. 服藥(is_on_medication)、素食(diet_type) 來自 user_profiles，
+   軟質食物(need_soft) 由健康狀況「牙口不好」推導
+   （schema_assistant_profile_gaps.sql，2026-11-16 補上；之前是寫死 False/'None'/False）。
 """
 import logging
 import os
@@ -37,7 +39,11 @@ _PROFILE_SQL = """
     SELECT
       coalesce(p.name, u.username)                                   AS "displayName",
       coalesce(a.allergens, '')                                      AS allergies,
-      coalesce(h.conditions, '')                                     AS "chronicConditions"
+      coalesce(h.conditions, '')                                     AS "chronicConditions",
+      coalesce(h.condition_ids, ARRAY[]::int[])                      AS condition_ids,
+      coalesce(p.is_on_medication, false)                            AS is_on_medication,
+      coalesce(p.diet_type, 'None')                                  AS diet_type,
+      coalesce(h.need_soft, false)                                   AS need_soft
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.user_id
     LEFT JOIN LATERAL (
@@ -46,7 +52,9 @@ _PROFILE_SQL = """
       WHERE user_id = u.user_id AND allergen_type = 'food'
     ) a ON true
     LEFT JOIN LATERAL (
-      SELECT string_agg(hc.condition_name, '、' ORDER BY hc.condition_id) AS conditions
+      SELECT string_agg(hc.condition_name, '、' ORDER BY hc.condition_id) AS conditions,
+             array_agg(hc.condition_id ORDER BY hc.condition_id)          AS condition_ids,
+             bool_or(hc.condition_key = 'poor_dental_status')             AS need_soft
       FROM user_health_conditions uhc
       JOIN health_conditions hc ON hc.condition_id = uhc.condition_id
       WHERE uhc.user_id = u.user_id
@@ -115,7 +123,12 @@ _RECIPE_FILTER_SQL = """
     SELECT r.id, r.title
     FROM recipes r
     WHERE
+      -- 「水果」分類是單一水果（蘋果、木瓜…），不是菜；規格要的是菜名。
+      -- 水果都有當季標記，不排除的話會被當季排序擠到最前面。
       NOT EXISTS (
+        SELECT 1 FROM categories c WHERE c.id = r.category_id AND c."name" = '水果'
+      )
+      AND NOT EXISTS (
         SELECT 1
         FROM recipe_ingredients ri
         JOIN ingredients i ON i.id = ri.ingredient_id
@@ -145,9 +158,13 @@ _RECIPE_FILTER_SQL = """
         FROM recipe_health_evaluations he
         WHERE he.recipe_id = r.id
           AND he.suitability = '不適合'
-          AND EXISTS (
-            SELECT 1 FROM unnest(%(conditions)s::text[]) AS c
-            WHERE he.disease_name LIKE '%%' || c || '%%'
+          AND (
+            -- 優先用 condition_id 比對（病名兩邊寫法不一致，例如「冠狀動脈 / 心血管疾病」vs「心血管疾病」）
+            he.condition_id = ANY(%(condition_ids)s::int[])
+            OR (he.condition_id IS NULL AND EXISTS (
+              SELECT 1 FROM unnest(%(conditions)s::text[]) AS c
+              WHERE he.disease_name LIKE '%%' || c || '%%'
+            ))
           )
       )
       AND (
@@ -178,8 +195,10 @@ _RECIPE_FILTER_SQL = """
          FROM recipe_health_evaluations he
         WHERE he.recipe_id = r.id
           AND he.suitability = '適合'
-          AND EXISTS (SELECT 1 FROM unnest(%(conditions)s::text[]) c
-                       WHERE he.disease_name LIKE '%%' || c || '%%')
+          AND (he.condition_id = ANY(%(condition_ids)s::int[])
+               OR (he.condition_id IS NULL AND EXISTS (
+                     SELECT 1 FROM unnest(%(conditions)s::text[]) c
+                     WHERE he.disease_name LIKE '%%' || c || '%%')))
       ) DESC,
       (EXISTS (SELECT 1
                  FROM recipe_seasons rs JOIN seasons s ON s.id = rs.season_id
@@ -211,7 +230,9 @@ def get_profile(user_id: int) -> dict:
         conn.close()
 
     if not row:
-        return {"displayName": "", "allergies": "", "chronicConditions": ""}
+        return {"displayName": "", "allergies": "", "chronicConditions": "",
+                "condition_ids": [], "is_on_medication": False,
+                "diet_type": "None", "need_soft": False}
     return dict(row)
 
 
@@ -248,9 +269,10 @@ def get_recipe_candidates(profile: dict) -> str:
     today = date.today()
     params = {
         "allergies": _split_pipe(profile.get("allergies", "")),
-        "diet_type": "None",  # 未實作素食型態，見 assistant_queries.sql 備註
+        "diet_type": profile.get("diet_type") or "None",
         "conditions": _split_pipe(profile.get("chronicConditions", "")),
-        "need_soft": False,  # 未實作咀嚼吞嚥欄位
+        "condition_ids": list(profile.get("condition_ids") or []),
+        "need_soft": bool(profile.get("need_soft")),
         "month": today.month,
         "limit": MAX_RECIPES,
     }
@@ -324,7 +346,7 @@ def build_chat_reply(user_id: int, req: dict) -> dict:
             "displayName": profile["displayName"],
             "allergies": profile["allergies"],
             "chronicConditions": profile["chronicConditions"],
-            "isOnMedication": False,  # user_profiles 還沒加這欄，見檔頭說明
+            "isOnMedication": bool(profile.get("is_on_medication")),
         },
         "lastUserMessage": req.get("lastUserMessage", ""),
         "lastReply": req.get("lastReply", ""),

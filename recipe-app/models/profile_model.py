@@ -28,6 +28,8 @@ def get_profile(user_id: int) -> dict:
                 SELECT p.user_id, p.name AS game_name, p.real_name, p.gender,
                        p.height AS height_cm, p.weight AS weight_kg, p.birthday AS birthdate,
                        p.avatar_url, p.equipped_outfit_id,
+                       COALESCE(p.is_on_medication, FALSE) AS is_on_medication,
+                       COALESCE(p.diet_type, 'None') AS diet_type,
                        u.username AS account,
                        s.player_level AS level, s.player_exp AS exp
                 FROM users u
@@ -56,7 +58,9 @@ def _outfit_unlocked(cur, user_id: int, outfit_id: int) -> bool:
 
 def save_profile(user_id: int, game_name: str, real_name: str, gender: str,
                   height_cm: int, weight_kg: int, birthdate: str,
-                  equipped_outfit_id=None) -> dict:
+                  equipped_outfit_id=None, is_on_medication=None, diet_type=None) -> dict:
+    # is_on_medication / diet_type 是給阿明用的新欄位（schema_assistant_profile_gaps.sql）。
+    # 傳 None 代表「這次沒送」→ 保留原值，舊版 Unity 整包存檔時不會把它們洗掉。
     # Unity 端的 SaveUserProfile 每次都送完整的 UserProfile（含 equipped_outfit_id），
     # OutfitPanel 換裝也是走這條路（複製目前 Profile、改 equipped_outfit_id、整包存檔），
     # 不是走單獨的「換裝」端點，所以這裡要順便驗證解鎖狀態。
@@ -65,9 +69,12 @@ def save_profile(user_id: int, game_name: str, real_name: str, gender: str,
             if equipped_outfit_id is not None and not _outfit_unlocked(cur, user_id, equipped_outfit_id):
                 raise RuleError("這套服裝尚未解鎖")
             cur.execute("""
-                INSERT INTO user_profiles (user_id, name, real_name, gender, height, weight, birthday, equipped_outfit_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO user_profiles (user_id, name, real_name, gender, height, weight, birthday,
+                                           equipped_outfit_id, is_on_medication, diet_type)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, COALESCE(%s, FALSE), COALESCE(%s, 'None'))
                 ON CONFLICT (user_id) DO UPDATE SET
+                    is_on_medication = COALESCE(%s, user_profiles.is_on_medication),
+                    diet_type = COALESCE(%s, user_profiles.diet_type),
                     name = EXCLUDED.name,
                     real_name = EXCLUDED.real_name,
                     gender = EXCLUDED.gender,
@@ -76,7 +83,8 @@ def save_profile(user_id: int, game_name: str, real_name: str, gender: str,
                     birthday = EXCLUDED.birthday,
                     equipped_outfit_id = COALESCE(EXCLUDED.equipped_outfit_id, user_profiles.equipped_outfit_id),
                     updated_at = CURRENT_TIMESTAMP;
-            """, (user_id, game_name, real_name, gender, height_cm, weight_kg, birthdate, equipped_outfit_id))
+            """, (user_id, game_name, real_name, gender, height_cm, weight_kg, birthdate, equipped_outfit_id,
+                  is_on_medication, diet_type, is_on_medication, diet_type))
     return get_profile(user_id)
 
 
@@ -135,6 +143,46 @@ def save_user_health_conditions(user_id: int, condition_ids_with_flag: list) -> 
                         VALUES (%s, %s);
                     """, (user_id, item["condition_id"]))
     return get_user_health_conditions(user_id)
+
+
+# ───────────── 食物過敏原 ─────────────
+# 必須跟 ingredients.allergen_group 同一套詞彙（AI助手後端說明.pdf p.4），
+# 讓長輩自己打字的話 recipe_filter 會靜靜地篩錯。資料庫也有同一份 CHECK
+# （user_allergies_food_vocab_check），這裡先擋是為了回清楚的錯誤訊息。
+FOOD_ALLERGEN_CATEGORIES = ['海鮮', '乳製品', '蛋類', '麩質', '大豆', '堅果', '花生', '芝麻', '芒果']
+
+
+def get_allergen_catalog() -> list:
+    return [{"name": n, "sort_order": i + 1} for i, n in enumerate(FOOD_ALLERGEN_CATEGORIES)]
+
+
+def get_user_allergies(user_id: int) -> list:
+    with db_transaction() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT allergen_name AS name, severity
+                FROM user_allergies
+                WHERE user_id = %s AND allergen_type = 'food'
+                ORDER BY allergen_name;
+            """, (user_id,))
+            return cur.fetchall()
+
+
+def save_user_allergies(user_id: int, names: list) -> list:
+    """覆蓋寫入使用者的食物過敏原（只動 allergen_type='food'，藥物/環境過敏不碰）。"""
+    unknown = [n for n in names if n not in FOOD_ALLERGEN_CATEGORIES]
+    if unknown:
+        raise ValueError("不支援的過敏原類別：" + "、".join(unknown)
+                         + "（只能選：" + "、".join(FOOD_ALLERGEN_CATEGORIES) + "）")
+    with db_transaction() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM user_allergies WHERE user_id = %s AND allergen_type = 'food';", (user_id,))
+            for name in dict.fromkeys(names):  # 去重、保留順序
+                cur.execute("""
+                    INSERT INTO user_allergies (user_id, allergen_name, allergen_type)
+                    VALUES (%s, %s, 'food');
+                """, (user_id, name))
+    return get_user_allergies(user_id)
 
 
 # ───────────── 換裝 ─────────────

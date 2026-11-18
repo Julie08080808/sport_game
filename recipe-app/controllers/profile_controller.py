@@ -10,6 +10,9 @@ API 設計：
     GET  /api/profile/health-conditions/catalog        健康狀況清單（全使用者共用）
     GET  /api/profile/{user_id}/health-conditions      使用者目前勾選的健康狀況
     PUT  /api/profile/{user_id}/health-conditions       覆蓋寫入
+    GET  /api/profile/allergens/catalog                 食物過敏原類別（固定 9 項，給下拉選單/勾選用）
+    GET  /api/profile/{user_id}/allergies               使用者目前登記的食物過敏原
+    PUT  /api/profile/{user_id}/allergies               覆蓋寫入（只接受 catalog 裡的類別）
     GET  /api/profile/{user_id}/outfits                 換裝清單（解鎖狀態）；穿上走 PUT /{user_id} 整包存（同 Unity OutfitPanel 的作法）
     GET  /api/profile/{user_id}/achievements            成就清單
     PUT  /api/profile/{user_id}/achievements/displayed  設定要展示的成就
@@ -21,7 +24,7 @@ import logging
 import os
 import shutil
 import uuid
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Query
 from pydantic import BaseModel, Field
@@ -60,6 +63,9 @@ class ProfileSaveRequest(BaseModel):
     weight_kg: Optional[int] = Field(default=None, ge=25, le=200)
     birthdate: Optional[str] = None
     equipped_outfit_id: Optional[int] = None
+    # 阿明用的欄位；不送（None）就保留原值，舊版 Unity 不用改也不會壞。
+    is_on_medication: Optional[bool] = None
+    diet_type: Optional[Literal["None", "Vegan"]] = None
 
 
 @router.put("/{user_id}")
@@ -68,7 +74,8 @@ def save_profile(user_id: int, req: ProfileSaveRequest):
     # 所以 equipped_outfit_id 的解鎖驗證放在 profile_model.save_profile 裡面。
     return dict(success=True, data=_call(
         profile_model.save_profile, user_id, req.game_name, req.real_name,
-        req.gender, req.height_cm, req.weight_kg, req.birthdate, req.equipped_outfit_id))
+        req.gender, req.height_cm, req.weight_kg, req.birthdate, req.equipped_outfit_id,
+        req.is_on_medication, req.diet_type))
 
 
 @router.post("/{user_id}/avatar")
@@ -117,6 +124,28 @@ class HealthConditionSaveRequest(BaseModel):
 def save_user_health_conditions(user_id: int, req: HealthConditionSaveRequest):
     items = [i.model_dump() for i in req.items]
     return dict(success=True, items=_call(profile_model.save_user_health_conditions, user_id, items))
+
+
+# ───────────── 食物過敏原 ─────────────
+
+@router.get("/allergens/catalog")
+def allergen_catalog():
+    return dict(success=True, items=profile_model.get_allergen_catalog())
+
+
+@router.get("/{user_id}/allergies")
+def user_allergies(user_id: int):
+    return dict(success=True, items=_call(profile_model.get_user_allergies, user_id))
+
+
+class AllergySaveRequest(BaseModel):
+    names: List[str] = Field(default_factory=list, max_length=9)
+
+
+@router.put("/{user_id}/allergies")
+def save_user_allergies(user_id: int, req: AllergySaveRequest):
+    # 不在 9 個類別內 → ValueError → _call 轉成 409，訊息會列出可選的類別。
+    return dict(success=True, items=_call(profile_model.save_user_allergies, user_id, req.names))
 
 
 # ───────────── 換裝 ─────────────
