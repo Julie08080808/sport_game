@@ -28,3 +28,9 @@ Thumbs.db
 
 # 上傳的圖片(視需要決定是否要上傳)
 # image/
+
+# Claude Code 本機設定
+.claude/
+
+# 資料庫備份（含使用者資料，不上傳）
+*.dump
