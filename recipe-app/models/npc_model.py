@@ -50,18 +50,29 @@ COOLDOWN_MINUTES = {
 }
 
 
+# 測試帳號（users.is_test_account，schema_test_accounts.sql）不管什麼原因都只冷卻這麼久，方便重複測試。
+TEST_ACCOUNT_COOLDOWN_SECONDS = 10
+
+
+def cooldown_interval_sql():
+    """冷卻長度的 SQL 片段：測試帳號固定 10 秒，長輩依原因。參數依序：user_id、分鐘數。"""
+    return (f"CASE WHEN (SELECT is_test_account FROM users WHERE user_id=%s) "
+            f"THEN make_interval(secs => {TEST_ACCOUNT_COOLDOWN_SECONDS}) "
+            f"ELSE make_interval(mins => %s) END")
+
+
 def set_task_cooldown(cur, user_id, task_id, reason):
-    """記錄冷卻；已經有比較長的冷卻時保留長的。"""
+    """記錄冷卻；已經有比較長的冷卻時保留長的。測試帳號一律 10 秒。"""
     minutes = COOLDOWN_MINUTES.get(reason, 1)
     cur.execute(
-        """INSERT INTO user_task_cooldowns(user_id,task_id,cooldown_until,reason,updated_at)
-           VALUES(%s,%s,CURRENT_TIMESTAMP + make_interval(mins => %s),%s,CURRENT_TIMESTAMP)
+        f"""INSERT INTO user_task_cooldowns(user_id,task_id,cooldown_until,reason,updated_at)
+           VALUES(%s,%s,CURRENT_TIMESTAMP + {cooldown_interval_sql()},%s,CURRENT_TIMESTAMP)
            ON CONFLICT(user_id,task_id) DO UPDATE SET
              cooldown_until=GREATEST(user_task_cooldowns.cooldown_until, EXCLUDED.cooldown_until),
              reason=CASE WHEN EXCLUDED.cooldown_until >= user_task_cooldowns.cooldown_until
                          THEN EXCLUDED.reason ELSE user_task_cooldowns.reason END,
              updated_at=CURRENT_TIMESTAMP""",
-        (user_id, task_id, minutes, reason),
+        (user_id, task_id, user_id, minutes, reason),
     )
 
 
@@ -148,12 +159,12 @@ def _eligible(cur, user_id, task, day):
     if task["recurrence_type"] != "none":
         # Do not guess semantics for unplanned recurring story tasks.
         return False
-    # story 任務可以重複做，但領過獎勵後要冷卻 1 小時才能再接；
-    # 放棄的(不管玩家自己放棄還是超時被自動放棄)不算數、不會卡住下一次接取。
+    # story 任務可以重複做，但領過獎勵後要冷卻 1 小時才能再接（測試帳號只冷卻 10 秒）；
+    # 放棄的冷卻另外記在 user_task_cooldowns（上面已檢查）。
     cur.execute(
-        """SELECT 1 FROM user_task_progress WHERE user_id=%s AND task_id=%s
-       AND status='rewarded' AND CURRENT_TIMESTAMP - rewarded_at < INTERVAL '1 hour' LIMIT 1""",
-        (user_id, task["task_id"]),
+        f"""SELECT 1 FROM user_task_progress WHERE user_id=%s AND task_id=%s
+       AND status='rewarded' AND CURRENT_TIMESTAMP - rewarded_at < {cooldown_interval_sql()} LIMIT 1""",
+        (user_id, task["task_id"], user_id, 60),
     )
     return cur.fetchone() is None
 

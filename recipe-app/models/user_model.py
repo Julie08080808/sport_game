@@ -89,6 +89,12 @@ def _unlock_initial_tasks(cur, user_id: int, player_level: int = 1) -> int:
     return len(cur.fetchall())
 
 
+def is_test_username(username):
+    """新註冊的帳號：名稱裡有 test（不分大小寫）= 測試帳號（任務冷卻 10 秒、統計排除），其他是長輩帳號。
+    2026-11-20 以前的帳號由 schema_test_accounts.sql 全部標成測試帳號。"""
+    return "test" in (username or "").lower()
+
+
 def create_user_with_stats(username, password):
     password_bytes = password.encode("utf-8")
     salt = bcrypt.gensalt()
@@ -104,11 +110,12 @@ def create_user_with_stats(username, password):
             cur.execute("""
                 INSERT INTO users (
                     username,
-                    password_hash
+                    password_hash,
+                    is_test_account
                 )
-                VALUES (%s, %s)
+                VALUES (%s, %s, %s)
                 RETURNING user_id;
-            """, (username, hashed_password))
+            """, (username, hashed_password, is_test_username(username)))
 
             user_id = cur.fetchone()["user_id"]
             initial_player_level = 1
