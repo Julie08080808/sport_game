@@ -171,9 +171,15 @@ def sync_session(user_id, session_id, sync_sequence, cumulative_count, cumulativ
             kind, dc, ds = evaluate_sync(
                 s, sync_sequence, cumulative_count, cumulative_seconds, state)
             if kind == 'new':
-                if p and p['status'] not in ('accepted', 'in_progress', 'interrupted'):
+                task_closed = bool(p) and p['status'] not in ('accepted', 'in_progress', 'interrupted')
+                # 任務已結束（例如擱置超過 1 小時被自動放棄）時，還開著的 Session 只能「收尾」：
+                # 接受 interrupted／ended 把 Session 關掉，但不增加任務進度；
+                # 不然 App 留著的最後一筆同步會永遠被拒絕，擋住之後所有任務。
+                if task_closed and state not in ('interrupted', 'ended'):
                     raise RuleError('任務已結束，不接受新增成果')
-                if p:
+                if task_closed:
+                    met = False
+                elif p:
                     pc = p['progress_count']+dc
                     ps = p['progress_seconds']+ds
                     met = goal_met(p['snapshot_goal_type'], pc,

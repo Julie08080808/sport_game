@@ -51,6 +51,8 @@ def expire_stale_progress(cur, user_id):
              AND CURRENT_TIMESTAMP - COALESCE(last_progress_at,accepted_at) > INTERVAL '1 hour'""",
         (user_id,),
     )
+    # 這些任務還開著的 Session 不在這裡關：App 手上可能還有最後一筆同步（序號更新），
+    # 這裡先關掉的話那筆會被拒絕。改由 App 送 interrupted／ended 收尾（exercise_model.sync_session 允許）。
 
 
 def _active(cur, user_id, task_id):
