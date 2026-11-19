@@ -30,11 +30,13 @@ def get_profile(user_id: int) -> dict:
                        p.avatar_url, p.equipped_outfit_id,
                        COALESCE(p.is_on_medication, FALSE) AS is_on_medication,
                        COALESCE(p.diet_type, 'None') AS diet_type,
+                       COALESCE(acc.is_mobility_limited, FALSE) AS is_mobility_limited,
                        u.username AS account,
                        s.player_level AS level, s.player_exp AS exp
                 FROM users u
                 LEFT JOIN user_profiles p ON p.user_id = u.user_id
                 LEFT JOIN user_stats s ON s.user_id = u.user_id
+                LEFT JOIN user_accessibility_profiles acc ON acc.user_id = u.user_id
                 WHERE u.user_id = %s;
             """, (user_id,))
             row = _require_row(cur.fetchone(), "找不到使用者資料")
@@ -58,9 +60,11 @@ def _outfit_unlocked(cur, user_id: int, outfit_id: int) -> bool:
 
 def save_profile(user_id: int, game_name: str, real_name: str, gender: str,
                   height_cm: int, weight_kg: int, birthdate: str,
-                  equipped_outfit_id=None, is_on_medication=None, diet_type=None) -> dict:
-    # is_on_medication / diet_type 是給阿明用的新欄位（schema_assistant_profile_gaps.sql）。
+                  equipped_outfit_id=None, is_on_medication=None, diet_type=None,
+                  is_mobility_limited=None) -> dict:
+    # is_on_medication / diet_type / is_mobility_limited 是給阿明用的欄位。
     # 傳 None 代表「這次沒送」→ 保留原值，舊版 Unity 整包存檔時不會把它們洗掉。
+    # is_mobility_limited 存在 user_accessibility_profiles（阿明推薦遊戲時用它篩掉要站起來的運動）。
     # Unity 端的 SaveUserProfile 每次都送完整的 UserProfile（含 equipped_outfit_id），
     # OutfitPanel 換裝也是走這條路（複製目前 Profile、改 equipped_outfit_id、整包存檔），
     # 不是走單獨的「換裝」端點，所以這裡要順便驗證解鎖狀態。
@@ -85,6 +89,14 @@ def save_profile(user_id: int, game_name: str, real_name: str, gender: str,
                     updated_at = CURRENT_TIMESTAMP;
             """, (user_id, game_name, real_name, gender, height_cm, weight_kg, birthdate, equipped_outfit_id,
                   is_on_medication, diet_type, is_on_medication, diet_type))
+            if is_mobility_limited is not None:
+                cur.execute("""
+                    INSERT INTO user_accessibility_profiles (user_id, is_mobility_limited)
+                    VALUES (%s, %s)
+                    ON CONFLICT (user_id) DO UPDATE SET
+                        is_mobility_limited = EXCLUDED.is_mobility_limited,
+                        updated_at = CURRENT_TIMESTAMP;
+                """, (user_id, is_mobility_limited))
     return get_profile(user_id)
 
 

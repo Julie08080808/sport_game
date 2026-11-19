@@ -66,6 +66,7 @@ class ProfileSaveRequest(BaseModel):
     # 阿明用的欄位；不送（None）就保留原值，舊版 Unity 不用改也不會壞。
     is_on_medication: Optional[bool] = None
     diet_type: Optional[Literal["None", "Vegan"]] = None
+    is_mobility_limited: Optional[bool] = None
 
 
 @router.put("/{user_id}")
@@ -75,7 +76,7 @@ def save_profile(user_id: int, req: ProfileSaveRequest):
     return dict(success=True, data=_call(
         profile_model.save_profile, user_id, req.game_name, req.real_name,
         req.gender, req.height_cm, req.weight_kg, req.birthdate, req.equipped_outfit_id,
-        req.is_on_medication, req.diet_type))
+        req.is_on_medication, req.diet_type, req.is_mobility_limited))
 
 
 @router.post("/{user_id}/avatar")
