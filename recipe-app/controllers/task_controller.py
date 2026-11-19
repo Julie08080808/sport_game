@@ -34,10 +34,10 @@ def list_tasks(user_id:int):
 
 @router.get('/folder')
 def folder(user_id:int,date:Optional[str]=None):
-    # 資料夾＝歷史紀錄＋進行中任務：query 帶 date(YYYY-MM-DD) 查某一天的完成/放棄紀錄，不帶 date 預設查今天。
-    # 待領獎的任務(completed/claimable)跟還在進行中的(accepted/in_progress/interrupted)都不受日期篩選，
-    # 一直顯示到玩家處理完為止——can_resume/progress_will_reset 就是給這些還在進行中的任務用的，
-    # 玩家被 NPC 對話導去「我的任務」資料夾續做，資料夾不能讓這些任務憑空消失。
+    # 日曆：query 帶 date(YYYY-MM-DD) 查某一天的紀錄，不帶 date 預設查今天。
+    # 顯示「完成並領獎的任務」＋「在運動畫面放棄的任務」；準備／暖身畫面放棄跟拒絕一樣，不顯示。
+    # 待領獎的任務(completed/claimable)不受日期篩選，一直顯示到領完為止。
+    # 沒做完的任務已經不能續做（離開＝放棄＋冷卻），所以不再列出進行中的任務。
     with db_transaction() as conn:
         with conn.cursor() as cur:
             expire_stale_progress(cur,user_id)
@@ -51,10 +51,12 @@ def folder(user_id:int,date:Optional[str]=None):
                  AND CURRENT_TIMESTAMP - COALESCE(p.last_progress_at,p.accepted_at) > INTERVAL '1 hour') AS progress_will_reset
               FROM user_task_progress p JOIN tasks t USING(task_id)
               WHERE p.user_id=%s AND (
-                p.status IN ('accepted','in_progress','interrupted','completed','claimable')
+                p.status IN ('completed','claimable')
                 OR (
                   COALESCE(p.abandoned_at,p.rewarded_at,p.completed_at)::date = COALESCE(%s::date,CURRENT_DATE)
-                  AND p.abandon_reason != 'preparation_exit'
+                  -- 完成的任務 abandon_reason 是 NULL；不能寫 abandon_reason != ...（NULL 比較永遠不成立，會把完成的濾掉）
+                  AND (p.status='rewarded'
+                       OR (p.status='abandoned' AND p.abandon_reason IS DISTINCT FROM 'preparation_exit'))
                 )
               )
               ORDER BY p.accepted_at DESC""",(user_id,date))
@@ -68,7 +70,7 @@ def folder_calendar(user_id:int,year:int,month:int):
             cur.execute("""SELECT DISTINCT COALESCE(abandoned_at,rewarded_at,completed_at)::date AS d
               FROM user_task_progress
               WHERE user_id=%s AND status IN ('completed','claimable','abandoned','rewarded')
-                AND (status != 'abandoned' OR abandon_reason != 'preparation_exit')
+                AND (status != 'abandoned' OR abandon_reason IS DISTINCT FROM 'preparation_exit')
                 AND EXTRACT(YEAR FROM COALESCE(abandoned_at,rewarded_at,completed_at))=%s
                 AND EXTRACT(MONTH FROM COALESCE(abandoned_at,rewarded_at,completed_at))=%s""",
               (user_id,year,month))
