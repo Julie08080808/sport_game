@@ -5,14 +5,15 @@ from config.database import db_transaction
 from services.reward_service import lock_user,reward_task
 from services.exercise_rules import RuleError,goal_met
 from controllers.exercise_controller import _call
-from models.npc_model import expire_stale_progress
+from models.npc_model import expire_stale_progress,set_task_cooldown,close_open_sessions
 
 router=APIRouter(prefix='/api/tasks',tags=['Task Progress'])
 class TaskRequest(BaseModel):
     user_id:int=Field(gt=0)
     task_progress_id:int=Field(gt=0)
 
-ABANDON_REASONS={'manual','challenge_timeout','preparation_exit'}
+# preparation_exit：準備／暖身畫面放棄（冷卻 1 分鐘、日曆不顯示）；exercise_exit：運動畫面中途離開（冷卻 30 分鐘、日曆顯示）
+ABANDON_REASONS={'manual','challenge_timeout','preparation_exit','exercise_exit'}
 class AbandonRequest(BaseModel):
     user_id:int=Field(gt=0)
     task_progress_id:int=Field(gt=0)
@@ -105,12 +106,12 @@ def _abandon(user_id,progress_id,reason='manual'):
                 raise RuleError('接取快照缺失')
             if goal_met(p['snapshot_goal_type'],p['progress_count'],p['progress_seconds'],p['target_count'],p['target_seconds']):
                 raise RuleError('已達標任務應發獎，不能放棄')
-            cur.execute("SELECT session_id FROM exercise_sessions WHERE task_progress_id=%s AND status IN ('created','active','paused')",(progress_id,))
-            if cur.fetchone():
-                raise RuleError('請先同步最後成果並結束 Session，再放棄')
+            # 還開著的 Session 一起結束（App 最後一筆成果沒送到也能放棄，不會卡住任務）
+            close_open_sessions(cur,progress_id)
             cur.execute("UPDATE item_task_bindings SET status='released',resolved_at=CURRENT_TIMESTAMP WHERE task_progress_id=%s AND status='reserved'",(progress_id,))
             cur.execute("UPDATE user_task_progress SET status='abandoned',abandoned_at=CURRENT_TIMESTAMP,abandon_reason=%s,updated_at=CURRENT_TIMESTAMP WHERE progress_id=%s",(reason,progress_id))
             cur.execute('UPDATE user_stats SET total_abandoned_tasks=total_abandoned_tasks+1 WHERE user_id=%s',(user_id,))
+            set_task_cooldown(cur,user_id,p['task_id'],reason)
             return {'success':True,'idempotent_replay':False}
 
 @router.post('/abandon')

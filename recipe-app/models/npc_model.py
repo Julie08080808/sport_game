@@ -40,19 +40,76 @@ def _prerequisites_satisfied(cur, user_id, task_id):
     return cur.fetchone() is None
 
 
-def expire_stale_progress(cur, user_id):
-    """中離或擱置超過 1 小時仍未回來繼續的任務，自動轉為已放棄；
-    不再是「之後回來繼續就靜悄悄歸零」，而是直接結束掉，讓 NPC 可以重新發新任務，
-    資料夾那邊也會如實顯示「已放棄」，不會卡在看起來還在進行中卻點不進去的狀態。"""
+# 放棄／拒絕後，這個任務要等多久才會再被 NPC 抽到（分鐘）。表：user_task_cooldowns（schema_task_cooldowns.sql）。
+COOLDOWN_MINUTES = {
+    "declined": 1,           # 一開始就拒絕
+    "preparation_exit": 1,   # 在準備／暖身畫面放棄，跟拒絕一樣
+    "exercise_exit": 30,     # 運動畫面中途離開（日曆會記錄）
+    "challenge_timeout": 30,  # 限時挑戰沒達標（日曆會記錄）
+    "manual": 30,            # 舊版 App 從運動畫面離開時送的原因
+}
+
+
+def set_task_cooldown(cur, user_id, task_id, reason):
+    """記錄冷卻；已經有比較長的冷卻時保留長的。"""
+    minutes = COOLDOWN_MINUTES.get(reason, 1)
     cur.execute(
-        """UPDATE user_task_progress SET status='abandoned',abandoned_at=CURRENT_TIMESTAMP,
-           updated_at=CURRENT_TIMESTAMP
-           WHERE user_id=%s AND status IN ('in_progress','interrupted')
-             AND CURRENT_TIMESTAMP - COALESCE(last_progress_at,accepted_at) > INTERVAL '1 hour'""",
+        """INSERT INTO user_task_cooldowns(user_id,task_id,cooldown_until,reason,updated_at)
+           VALUES(%s,%s,CURRENT_TIMESTAMP + make_interval(mins => %s),%s,CURRENT_TIMESTAMP)
+           ON CONFLICT(user_id,task_id) DO UPDATE SET
+             cooldown_until=GREATEST(user_task_cooldowns.cooldown_until, EXCLUDED.cooldown_until),
+             reason=CASE WHEN EXCLUDED.cooldown_until >= user_task_cooldowns.cooldown_until
+                         THEN EXCLUDED.reason ELSE user_task_cooldowns.reason END,
+             updated_at=CURRENT_TIMESTAMP""",
+        (user_id, task_id, minutes, reason),
+    )
+
+
+def close_open_sessions(cur, progress_id):
+    """任務結案時，還開著的運動 Session 一起以 interrupted 結束（已做的次數保留在 Session 上）。"""
+    cur.execute(
+        """UPDATE exercise_sessions SET status='interrupted',last_sync_state='interrupted',
+             ended_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
+           WHERE task_progress_id=%s AND status IN ('created','active','paused')""",
+        (progress_id,),
+    )
+
+
+def abandon_unfinished(cur, user_id, stale_only=False):
+    """沒做完的任務一律結案成「已放棄」並開始冷卻（沒有續做這回事）：
+    還在準備畫面（accepted）= preparation_exit；已經開始運動（in_progress／interrupted）= exercise_exit。
+    正常流程 App 離開時會自己呼叫放棄；這裡收拾 App 被關掉、斷線等沒送到的情況。
+    stale_only=True 時只收超過 1 小時沒動的（給「我的任務」查詢用，避免影響正在運動的人）。"""
+    stale = ("AND CURRENT_TIMESTAMP - COALESCE(last_progress_at,accepted_at) > INTERVAL '1 hour'"
+             if stale_only else "")
+    cur.execute(
+        f"""UPDATE user_task_progress SET status='abandoned',abandoned_at=CURRENT_TIMESTAMP,
+              abandon_reason=CASE WHEN status='accepted' THEN 'preparation_exit' ELSE 'exercise_exit' END,
+              updated_at=CURRENT_TIMESTAMP
+            WHERE user_id=%s AND status IN ('accepted','in_progress','interrupted') {stale}
+            RETURNING progress_id, task_id, abandon_reason""",
         (user_id,),
     )
-    # 這些任務還開著的 Session 不在這裡關：App 手上可能還有最後一筆同步（序號更新），
-    # 這裡先關掉的話那筆會被拒絕。改由 App 送 interrupted／ended 收尾（exercise_model.sync_session 允許）。
+    rows = cur.fetchall()
+    for r in rows:
+        close_open_sessions(cur, r["progress_id"])
+        cur.execute(
+            """UPDATE item_task_bindings SET status='released',resolved_at=CURRENT_TIMESTAMP
+               WHERE task_progress_id=%s AND status='reserved'""",
+            (r["progress_id"],),
+        )
+        set_task_cooldown(cur, user_id, r["task_id"], r["abandon_reason"])
+    if rows:
+        cur.execute(
+            "UPDATE user_stats SET total_abandoned_tasks=total_abandoned_tasks+%s WHERE user_id=%s",
+            (len(rows), user_id),
+        )
+    return rows
+
+
+def expire_stale_progress(cur, user_id):
+    """擱置超過 1 小時的未完成任務自動放棄（見 abandon_unfinished）。"""
+    return abandon_unfinished(cur, user_id, stale_only=True)
 
 
 def _active(cur, user_id, task_id):
@@ -67,6 +124,14 @@ def _active(cur, user_id, task_id):
 
 def _eligible(cur, user_id, task, day):
     if not task["is_listed"]:
+        return False
+    # 放棄／拒絕後的冷卻還沒過，先不要發這個任務
+    cur.execute(
+        """SELECT 1 FROM user_task_cooldowns WHERE user_id=%s AND task_id=%s
+           AND cooldown_until > CURRENT_TIMESTAMP""",
+        (user_id, task["task_id"]),
+    )
+    if cur.fetchone():
         return False
     if task["task_kind"] == "daily_commission":
         # Commission pool and replacement policy are not implemented yet.
@@ -240,7 +305,8 @@ def get_npc_task_offer(user_id, npc_key):
             stats = cur.fetchone()
             if not stats:
                 return {"success": False, "message": "找不到玩家資料"}
-            expire_stale_progress(cur, user_id)
+            # 回到地圖找 NPC = 不在運動中：沒做完的任務一律結案並開始冷卻，不會再擋住 NPC。
+            abandon_unfinished(cur, user_id)
             conn.commit()
             cur.execute(TASK_SELECT, (user_id, npc["npc_id"]))
             tasks = cur.fetchall()
@@ -317,6 +383,17 @@ def accept_or_decline_task(
     via_folder=False,
 ):
     if not accepted:
+        # 拒絕：這個任務冷卻 1 分鐘再回到可以抽的任務裡
+        conn = get_db_conn()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                set_task_cooldown(cur, user_id, task_id, "declined")
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            logger.exception("Decline cooldown failed")
+        finally:
+            conn.close()
         return {
             "success": True,
             "status": "declined",
@@ -338,7 +415,7 @@ def accept_or_decline_task(
             stats = cur.fetchone()
             if not stats:
                 raise ValueError("找不到玩家資料")
-            expire_stale_progress(cur, user_id)
+            abandon_unfinished(cur, user_id)
             cur.execute(
                 TASK_SELECT + " AND t.task_id=%s",
                 (user_id, npc_id, task_id),
