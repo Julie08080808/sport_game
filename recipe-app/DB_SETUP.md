@@ -85,7 +85,14 @@ pip install -r requirements.txt
 psql -U postgres -d sport_game -f <檔名>
 ```
 
-（目前沒有。新增時列在這裡。）
+**照順序跑**（每支都可以重複執行）：
+
+| # | 檔案 | 內容 |
+|---|------|------|
+| 1 | `schema_task_cooldowns.sql` | 放棄／拒絕任務後的冷卻時間 |
+| 2 | `schema_test_accounts.sql` | 標記測試帳號（冷卻只有 10 秒） |
+| 3 | `schema_mobility_levels.sql` | 行動三個等級（方便／不能久站／腳不方便動）、森林替代任務（坐著踏步、伸手摘松果、拉藤蔓） |
+| 4 | `schema_demo_videos.sql` | 每個任務的示範影片代號；踢椰子改成扶牆側抬腳（要先跑第 3 支） |
 
 ## 參考：各 SQL 的用途與順序
 

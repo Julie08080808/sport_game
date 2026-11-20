@@ -31,6 +31,9 @@ def get_profile(user_id: int) -> dict:
                        COALESCE(p.is_on_medication, FALSE) AS is_on_medication,
                        COALESCE(p.diet_type, 'None') AS diet_type,
                        COALESCE(acc.is_mobility_limited, FALSE) AS is_mobility_limited,
+                       CASE WHEN acc.allow_leg_exercise = FALSE THEN 'no_legs'
+                            WHEN acc.allow_standing_exercise = FALSE THEN 'no_standing'
+                            ELSE 'normal' END AS mobility_level,
                        u.username AS account,
                        s.player_level AS level, s.player_exp AS exp
                 FROM users u
@@ -61,10 +64,13 @@ def _outfit_unlocked(cur, user_id: int, outfit_id: int) -> bool:
 def save_profile(user_id: int, game_name: str, real_name: str, gender: str,
                   height_cm: int, weight_kg: int, birthdate: str,
                   equipped_outfit_id=None, is_on_medication=None, diet_type=None,
-                  is_mobility_limited=None) -> dict:
-    # is_on_medication / diet_type / is_mobility_limited 是給阿明用的欄位。
+                  is_mobility_limited=None, mobility_level=None) -> dict:
+    # is_on_medication / diet_type / mobility_level 是給 AI 助手和派任務用的欄位。
     # 傳 None 代表「這次沒送」→ 保留原值，舊版 Unity 整包存檔時不會把它們洗掉。
-    # is_mobility_limited 存在 user_accessibility_profiles（阿明推薦遊戲時用它篩掉要站起來的運動）。
+    # mobility_level（normal / no_standing / no_legs）存在 user_accessibility_profiles，
+    # NPC 派任務、AI 助手推薦遊戲都照它篩（見 npc_model.task_fits_mobility）。
+    # is_mobility_limited 是舊版的兩個選項（方便／不太方便），只在沒送 mobility_level 時使用：
+    # true 當作「腳不方便動」（舊版「不太方便」的意思就是只做手部運動）。
     # Unity 端的 SaveUserProfile 每次都送完整的 UserProfile（含 equipped_outfit_id），
     # OutfitPanel 換裝也是走這條路（複製目前 Profile、改 equipped_outfit_id、整包存檔），
     # 不是走單獨的「換裝」端點，所以這裡要順便驗證解鎖狀態。
@@ -89,15 +95,29 @@ def save_profile(user_id: int, game_name: str, real_name: str, gender: str,
                     updated_at = CURRENT_TIMESTAMP;
             """, (user_id, game_name, real_name, gender, height_cm, weight_kg, birthdate, equipped_outfit_id,
                   is_on_medication, diet_type, is_on_medication, diet_type))
-            if is_mobility_limited is not None:
+            if mobility_level is None and is_mobility_limited is not None:
+                mobility_level = "no_legs" if is_mobility_limited else "normal"
+            if mobility_level is not None:
+                allow_standing, allow_leg = MOBILITY_FLAGS[mobility_level]
                 cur.execute("""
-                    INSERT INTO user_accessibility_profiles (user_id, is_mobility_limited)
-                    VALUES (%s, %s)
+                    INSERT INTO user_accessibility_profiles
+                        (user_id, is_mobility_limited, allow_standing_exercise, allow_leg_exercise)
+                    VALUES (%s, %s, %s, %s)
                     ON CONFLICT (user_id) DO UPDATE SET
                         is_mobility_limited = EXCLUDED.is_mobility_limited,
+                        allow_standing_exercise = EXCLUDED.allow_standing_exercise,
+                        allow_leg_exercise = EXCLUDED.allow_leg_exercise,
                         updated_at = CURRENT_TIMESTAMP;
-                """, (user_id, is_mobility_limited))
+                """, (user_id, mobility_level != "normal", allow_standing, allow_leg))
     return get_profile(user_id)
+
+
+# 行動等級 → (可以站著運動, 可以做腳的運動)
+MOBILITY_FLAGS = {
+    "normal": (True, True),
+    "no_standing": (False, True),
+    "no_legs": (False, False),
+}
 
 
 def save_avatar_url(user_id: int, avatar_url: str) -> dict:

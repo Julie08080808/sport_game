@@ -106,7 +106,10 @@ _GAMES_SQL = """
         LEFT JOIN user_accessibility_profiles acc ON acc.user_id = dt.user_id
         WHERE dt.user_id = %(user_id)s
           AND dt.task_date = current_date
-          AND (acc.is_mobility_limited IS NOT TRUE OR t.is_mobility_friendly)
+          -- 跟 NPC 派任務同一套行動規則（npc_model.task_fits_mobility）：
+          -- 不能久站不推要站的，腳不方便動也不推要動腳的
+          AND NOT (acc.allow_standing_exercise = FALSE AND t.requires_standing)
+          AND NOT (acc.allow_leg_exercise = FALSE AND t.requires_leg_movement)
           AND NOT EXISTS (
             SELECT 1 FROM user_task_progress p
             WHERE p.daily_task_id = dt.daily_task_id

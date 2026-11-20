@@ -28,6 +28,48 @@ TASK_SELECT = """
 """
 
 
+# ───────────── 行動能力（schema_mobility_levels.sql） ─────────────
+# 個人檔案「行動」三個選項，存在 user_accessibility_profiles：
+#   normal       方便：全部任務都可以派
+#   no_standing  不能久站（腳可以動）：不派要站的任務；森林改派「坐著踢椰子」
+#   no_legs      腳不方便動：不派要站或要動腳的任務，只有手部運動；森林改派「伸手摘松果」等
+MOBILITY_NORMAL = "normal"
+MOBILITY_NO_STANDING = "no_standing"
+MOBILITY_NO_LEGS = "no_legs"
+
+
+def get_mobility_level(cur, user_id):
+    """沒填過行動資料的玩家當作「方便」。"""
+    cur.execute(
+        """SELECT allow_standing_exercise, allow_leg_exercise
+           FROM user_accessibility_profiles WHERE user_id=%s""",
+        (user_id,),
+    )
+    row = cur.fetchone()
+    if not row:
+        return MOBILITY_NORMAL
+    if not row["allow_leg_exercise"]:
+        return MOBILITY_NO_LEGS
+    if not row["allow_standing_exercise"]:
+        return MOBILITY_NO_STANDING
+    return MOBILITY_NORMAL
+
+
+def task_fits_mobility(task, level):
+    """
+    這個任務能不能派給這個行動等級的玩家。
+    mobility_audience 不是 'all' 的是替代任務（例如坐著踢椰子），只派給指定等級，一般玩家不會抽到。
+    """
+    audience = task.get("mobility_audience") or "all"
+    if audience != "all" and audience != level:
+        return False
+    if level in (MOBILITY_NO_STANDING, MOBILITY_NO_LEGS) and task.get("requires_standing"):
+        return False
+    if level == MOBILITY_NO_LEGS and task.get("requires_leg_movement"):
+        return False
+    return True
+
+
 def _prerequisites_satisfied(cur, user_id, task_id):
     cur.execute(
         """SELECT 1 FROM task_prerequisites p WHERE p.task_id=%s AND p.is_active
@@ -324,6 +366,7 @@ def get_npc_task_offer(user_id, npc_key):
             available = []
             pending = []
             day = datetime.now(TAIPEI).date()
+            mobility = get_mobility_level(cur, user_id)
             for t in tasks:
                 p = _active(cur, user_id, t["task_id"])
                 # Existing progress stays reachable even if its new-offer listing was hidden.
@@ -331,7 +374,8 @@ def get_npc_task_offer(user_id, npc_key):
                     pending.append((t, p))
                     continue
                 if (
-                    t["unlocked"]
+                    task_fits_mobility(t, mobility)
+                    and t["unlocked"]
                     and t["required_player_level"] <= stats["player_level"]
                     and _eligible(cur, user_id, t, day)
                     and _prerequisites_satisfied(cur, user_id, t["task_id"])
@@ -434,6 +478,9 @@ def accept_or_decline_task(
             t = cur.fetchone()
             if not t:
                 raise ValueError("任務或 NPC 對應不存在／已停用")
+            # 跟派任務同一套規則：不讓舊版 App 或直接呼叫 API 接到不適合行動等級的任務。
+            if not task_fits_mobility(t, get_mobility_level(cur, user_id)):
+                raise ValueError("這個任務不適合你目前的行動設定，請到個人資料確認「行動」選項")
             if request_id:
                 cur.execute(
                     "SELECT * FROM user_task_progress WHERE user_id=%s AND accept_request_id=%s",
