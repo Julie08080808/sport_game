@@ -203,6 +203,11 @@ _RECIPE_FILTER_SQL = """
                      SELECT 1 FROM unnest(%(conditions)s::text[]) c
                      WHERE he.disease_name LIKE '%%' || c || '%%')))
       ) DESC,
+      -- 菜名用到埔里特產的排前面（茭白筍、香菇、百香果、紅甘蔗）。
+      -- 比魯回答「埔里有什麼食材」時是看菜名挑的，候選三道裡要有這幾道才報得出來；
+      -- 原本最後是 random()，大約一半的機會三道都對不上。
+      -- 只改排序、不改篩選：過敏原、素食、慢性病、軟質、季節的排除都照舊。
+      (r.title ~ '(茭白筍|筊白筍|美人腿|香菇|百香果|紅甘蔗)') DESC,
       (EXISTS (SELECT 1
                  FROM recipe_seasons rs JOIN seasons s ON s.id = rs.season_id
                 WHERE rs.recipe_id = r.id AND s."name" <> '全年')
