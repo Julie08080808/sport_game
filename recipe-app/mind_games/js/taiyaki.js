@@ -204,12 +204,13 @@ function loadQuestion(idx) {
   $qLabel.textContent   = `第 ${idx + 1} 題 / 共 ${state.questions.length} 題`;
   $stageBnr.textContent = q.stageLabel;
 
-  const colTemplate = `repeat(${q.cols}, 1fr)`;
-  const rowTemplate = `repeat(${q.rows}, 1fr)`;
+  // Grid shape is fed to the CSS as variables; taiyaki.html sizes the cells
+  // from them so the mold always fits the available width and height.
+  const $moldArea = document.getElementById('mold-area');
+  $moldArea.style.setProperty('--cols', q.cols);
+  $moldArea.style.setProperty('--rows', q.rows);
 
   // ── Left grid (read-only) ──
-  $leftGrid.style.gridTemplateColumns = colTemplate;
-  $leftGrid.style.gridTemplateRows    = rowTemplate;
   $leftGrid.innerHTML = '';
   for (let r = 0; r < q.rows; r++) {
     for (let c = 0; c < q.cols; c++) {
@@ -223,8 +224,6 @@ function loadQuestion(idx) {
   }
 
   // ── Right grid (player) ──
-  $rightGrid.style.gridTemplateColumns = colTemplate;
-  $rightGrid.style.gridTemplateRows    = rowTemplate;
   $rightGrid.innerHTML = '';
   for (let r = 0; r < q.rows; r++) {
     for (let c = 0; c < q.cols; c++) {
@@ -245,36 +244,7 @@ function loadQuestion(idx) {
   } else {
     $fillPanel.classList.add('hidden-panel');
   }
-
-  sizeMoldGrids(q);
 }
-
-// 把左右兩個格子算成實際的 px 寬高，讓格子永遠是正方形、
-// 並且整組絕對不會超出 .mold-panel 可用的空間（不會跟上下文字重疊）。
-function sizeMoldGrids(q) {
-  const GAP   = 5; // 需跟 CSS 的 .mold-grid { gap: 5px } 一致
-  const panel = $leftGrid.parentElement; // .mold-panel.left
-  const availW = panel.clientWidth;
-  const availH = panel.clientHeight;
-  if (availW <= 0 || availH <= 0) return;
-
-  const cellByW = (availW - (q.cols - 1) * GAP) / q.cols;
-  const cellByH = (availH - (q.rows - 1) * GAP) / q.rows;
-  const cell    = Math.max(8, Math.floor(Math.min(cellByW, cellByH)));
-
-  const gridW = q.cols * cell + (q.cols - 1) * GAP;
-  const gridH = q.rows * cell + (q.rows - 1) * GAP;
-
-  [$leftGrid, $rightGrid].forEach($grid => {
-    $grid.style.width  = `${gridW}px`;
-    $grid.style.height = `${gridH}px`;
-  });
-}
-
-window.addEventListener('resize', () => {
-  const q = state.questions && state.questions[state.qIdx];
-  if (q) sizeMoldGrids(q);
-});
 
 // ─── Filling Buttons ──────────────────────────────────────────────────────────
 

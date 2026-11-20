@@ -323,7 +323,7 @@ button { cursor:pointer; font-family:inherit; border:none; outline:none; backgro
   min-width: 110px;
 }
 .stat-label { font-size:clamp(11px,1.6vh,15px); color:var(--c-text-mid); display:block; margin-bottom:2px; }
-.stat-value { font-size: clamp(20px,4.2vh,34px); font-weight:900; color:var(--c-text); line-height:1.1; }
+.stat-value { display:block; font-size: clamp(20px,4.2vh,34px); font-weight:900; color:var(--c-text); line-height:1.1; }
 .stat-value.warn   { color:var(--c-primary); }
 .stat-value.danger { color:var(--c-error); animation:pulse .5s ease infinite; }
 
@@ -676,3 +676,135 @@ button { cursor:pointer; font-family:inherit; border:none; outline:none; backgro
 .diff-badge.easy   { background: #E8F5E9; color: #2E7D32; }
 .diff-badge.normal { background: #FFF8E1; color: #E65100; }
 .diff-badge.hard   { background: #FFEBEE; color: #C62828; }
+
+/* =====================================================================
+   Phone layout (≤ 600px wide)
+   ---------------------------------------------------------------------
+   The 1080×1920 canvas above is kept for desktop / tablets. On phones,
+   a fixed 9:16 box doesn't match the screen (most phones are 9:19.5+),
+   which caused grey bars, text sized from the full screen height while
+   the box was shorter, and content running into the background art.
+   Here the page fills the whole screen instead, the background art is
+   scaled by WIDTH (all bg images are 960×1706 with a solid #ADC879
+   edge, so the uncovered area blends in), and the space reserved for
+   the art is expressed in vw so it always tracks where the art is.
+   If a very short screen still can't fit everything, the panel scrolls
+   instead of overlapping or clipping.
+   ===================================================================== */
+@media (max-width: 600px) {
+  @supports (color: color(display-p3 0 0 0)) {
+    :root { --art-green-p3: color(display-p3 0.678 0.784 0.475); }
+  }
+  :root {
+    /* the bg JPGs are tagged Display P3, so match their edge colour in P3
+       (sRGB fallback = how browsers render that P3 colour) */
+    --art-green: #A6C96E;
+    /* height the 960×1706 background image takes at full screen width */
+    --art-h: 177.7vw;
+    /* bottom area occupied by the mascot (dog + speech bubble) on start screens */
+    --mascot-h: 38vw;
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-t: env(safe-area-inset-top, 0px);
+  }
+
+  body {
+    background: var(--art-green-p3, var(--art-green));
+    font-size: 16px;
+  }
+
+  .page-wrapper,
+  .game-page {
+    width: 100%;
+    max-width: none;
+    height: 100vh;
+    height: 100dvh;
+    aspect-ratio: auto;
+    box-shadow: none;
+  }
+
+  /* ---------- Index ---------- */
+  .page-wrapper {
+    background: var(--art-green-p3, var(--art-green)) url('../images/home-bg.jpg') top center / 100% auto no-repeat;
+    padding: var(--safe-t) 12px calc(12px + var(--safe-b));
+  }
+  /* the mascot art at the top ends at ~59% of the screen width */
+  .hero-spacer { flex: 0 0 60vw; }
+  .main-content { overflow-y: auto; }
+  .game-card { min-height: 64px; }
+  .card-title { font-size: clamp(15px, 4.6vw, 19px); }
+  .tag { font-size: clamp(11px, 3.2vw, 13px); }
+  .card-btn { width: clamp(62px, 20vw, 80px); font-size: clamp(11px, 3.3vw, 14px); white-space: nowrap; padding: 4px; }
+  .card-icon-img { width: clamp(34px, 11vw, 48px); height: clamp(34px, 11vw, 48px); }
+
+  /* ---------- Game pages: shared ---------- */
+  .game-page,
+  .game-page:not(.showing-result) {          /* also beats per-game overrides */
+    padding: calc(8px + var(--safe-t)) 12px calc(8px + var(--safe-b));
+    /* bottom-anchored so the mascot always sits at the bottom edge */
+    background: var(--art-green-p3, var(--art-green)) url('../images/game-bg.jpg') bottom center / 100% auto no-repeat;
+  }
+  .game-page.in-game { background: var(--c-bg); }
+  .game-page.showing-result {
+    padding: calc(8px + var(--safe-t)) 12px calc(8px + var(--safe-b));
+    background: var(--art-green-p3, var(--art-green)) url('../images/result-bg.jpg') bottom center / 100% auto no-repeat;
+  }
+
+  /* ---------- Start screen ---------- */
+  .start-screen {
+    justify-content: center;
+    /* top: clear the flowers (≈20vw into the art; the art starts lower on tall screens)
+       bottom: clear the mascot */
+    padding: calc(max(0px, 100dvh - var(--art-h)) + 14vw) 4px var(--mascot-h);
+    gap: clamp(6px, 2.2vw, 12px);
+    overflow-y: auto;
+  }
+  .start-title { font-size: clamp(22px, 7.4vw, 30px); line-height: 1.2; }
+  .start-desc  { font-size: clamp(13px, 3.8vw, 16px); }
+  .start-rules { padding: 10px 14px; flex-shrink: 0; overflow: visible; }
+  .start-rules h3 { font-size: clamp(14px, 4vw, 17px); margin-bottom: 6px; }
+  .start-rules ul { gap: 5px; }
+  .start-rules li { font-size: clamp(12.5px, 3.6vw, 15px); padding-left: 24px; }
+  .diff-btn  { min-height: 56px; padding: 6px 4px; }
+  .diff-name { font-size: clamp(14px, 4.2vw, 17px); }
+  .diff-hint { font-size: clamp(10.5px, 3vw, 12px); }
+  .start-btns .btn-outline { margin-top: 2px; }
+
+  /* ---------- In-game header / stats ---------- */
+  .game-header { gap: 8px; }
+  .back-btn { padding: 6px 10px; font-size: clamp(14px, 4.2vw, 17px); min-height: 44px; }
+  .game-name { font-size: clamp(15px, 4.6vw, 20px); }
+  .stat-box { padding: 4px 12px; min-width: 0; }
+  .stat-label { font-size: clamp(11px, 3.2vw, 13px); }
+  .stat-value { font-size: clamp(20px, 6.4vw, 28px); }
+
+  /* ---------- Result screen ---------- */
+  .result-screen {
+    justify-content: center;
+    /* keep the card above the speech bubble + mascot at the bottom of the art */
+    padding: 4px 4px 44vw;
+    overflow-y: auto;
+  }
+  .result-card { margin-top: 0; max-height: none; gap: 8px; padding: 14px 16px 12px; }
+  /* speech bubble in result-bg.jpg: x 11.5%–88.5%, y 76.8%–87.8% of the image.
+     With the image bottom-anchored at full width, that is measured from the bottom: */
+  .result-encourage {
+    top: auto;
+    bottom: 21.7vw;
+    height: 19.5vw;
+    font-size: clamp(13px, 3.8vw, 16px);
+    padding: 0 12px;
+  }
+
+  /* ---------- Dialog ---------- */
+  .dialog-overlay { padding: 16px; }
+  .dialog-box { padding: 24px 18px; border-radius: var(--r-lg); max-height: 100%; overflow-y: auto; }
+  .dialog-emoji { font-size: clamp(44px, 14vw, 64px); margin-bottom: 8px; }
+  .dialog-title { font-size: clamp(22px, 7vw, 30px); }
+  .dialog-msg   { font-size: clamp(15px, 4.4vw, 18px); margin-bottom: 18px; line-height: 1.55; }
+}
+
+/* Very short phones (e.g. 320×568, or a phone with the keyboard / big browser bars) */
+@media (max-width: 600px) and (max-height: 620px) {
+  :root { --mascot-h: 30vw; }
+  .start-screen { padding-top: 8vw; }
+}

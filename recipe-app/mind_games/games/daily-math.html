@@ -6,7 +6,7 @@
   <title>作帳小幫手</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../css/style.css?v=18">
+  <link rel="stylesheet" href="../css/style.css?v=19">
   <style>
     /* ── Progress Bar ── */
     .progress-bar-wrap {
@@ -34,7 +34,8 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
-      overflow: hidden;
+      overflow-y: auto;   /* short screens: scroll instead of cutting off the answers */
+      -webkit-overflow-scrolling: touch;
     }
     .q-stage-badge {
       display: inline-flex;
@@ -56,7 +57,7 @@
       border-radius: var(--r-md);
       padding: 18px;
       border: 2px dashed var(--c-border);
-      flex: 1 1 auto;
+      flex: 0 0 auto;
       display: flex;
       flex-direction: column;
     }
@@ -161,6 +162,16 @@
     .feedback-msg.correct { background:#E8F5E9; color:#2E7D32; }
     .feedback-msg.wrong   { background:#FFEBEE; color:#C62828; }
     .feedback-msg.hidden  { visibility:hidden; }
+
+    @media (max-width: 600px) {
+      .question-card { padding: 12px; gap: 8px; }
+      .scene-area    { padding: 10px 12px; }
+      .scene-context { font-size: clamp(13px, 3.8vw, 16px); }
+      .q-text        { font-size: clamp(17px, 5.2vw, 22px); }
+      .answer-row    { gap: 8px; }
+      .option-btn    { flex: 1 1 calc(50% - 4px); min-width: 0; font-size: clamp(16px, 5vw, 21px); min-height: 50px; padding: 8px 6px; }
+      .feedback-msg  { font-size: clamp(14px, 4.2vw, 16px); }
+    }
   </style>
 </head>
 <body>
