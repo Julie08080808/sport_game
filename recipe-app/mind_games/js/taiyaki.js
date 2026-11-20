@@ -204,12 +204,13 @@ function loadQuestion(idx) {
   $qLabel.textContent   = `第 ${idx + 1} 題 / 共 ${state.questions.length} 題`;
   $stageBnr.textContent = q.stageLabel;
 
-  const colTemplate = `repeat(${q.cols}, 1fr)`;
-  const rowTemplate = `repeat(${q.rows}, 1fr)`;
+  // Grid shape is fed to the CSS as variables; taiyaki.html sizes the cells
+  // from them so the mold always fits the available width and height.
+  const $moldArea = document.getElementById('mold-area');
+  $moldArea.style.setProperty('--cols', q.cols);
+  $moldArea.style.setProperty('--rows', q.rows);
 
   // ── Left grid (read-only) ──
-  $leftGrid.style.gridTemplateColumns = colTemplate;
-  $leftGrid.style.gridTemplateRows    = rowTemplate;
   $leftGrid.innerHTML = '';
   for (let r = 0; r < q.rows; r++) {
     for (let c = 0; c < q.cols; c++) {
@@ -223,8 +224,6 @@ function loadQuestion(idx) {
   }
 
   // ── Right grid (player) ──
-  $rightGrid.style.gridTemplateColumns = colTemplate;
-  $rightGrid.style.gridTemplateRows    = rowTemplate;
   $rightGrid.innerHTML = '';
   for (let r = 0; r < q.rows; r++) {
     for (let c = 0; c < q.cols; c++) {

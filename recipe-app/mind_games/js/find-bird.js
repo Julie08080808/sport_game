@@ -242,8 +242,11 @@ function spawnRound() {
   // size both vary (device width, difficulty), so clamp against the box's
   // actual measured size instead of trusting the raw percentages.
   const sceneRect  = $scene.getBoundingClientRect();
-  const marginXPct = Math.min(45, (cfg.spriteSize / 2 / sceneRect.width)  * 100);
-  const marginYPct = Math.min(45, (cfg.spriteSize / 2 / sceneRect.height) * 100);
+  // spriteSize is tuned for a ~343px-wide scene; scale it with the actual
+  // scene so small phones don't get oversized, overlapping animals.
+  const spriteSize = Math.round(cfg.spriteSize * Math.min(1.25, Math.max(0.7, sceneRect.width / 343)));
+  const marginXPct = Math.min(45, (spriteSize / 2 / sceneRect.width)  * 100);
+  const marginYPct = Math.min(45, (spriteSize / 2 / sceneRect.height) * 100);
 
   placements.forEach(({ animal, cell }) => {
     const el = document.createElement('img');
@@ -253,7 +256,7 @@ function spawnRound() {
     el.alt   = '';
     el.style.left  = Math.min(100 - marginXPct, Math.max(marginXPct, cell.x)) + '%';
     el.style.top   = Math.min(100 - marginYPct, Math.max(marginYPct, cell.y)) + '%';
-    el.style.width = cfg.spriteSize + 'px';
+    el.style.width = spriteSize + 'px';
     el.addEventListener('click', () => onAnimalClick(el, animal));
     $scene.appendChild(el);
   });
