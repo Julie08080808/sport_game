@@ -9,6 +9,8 @@ outfits / achievements / user_settings 是這次新增的表（見 schema_profil
 等級/經驗一律唯讀鏡射 user_stats，不在這裡寫入（寫入入口仍是 user_model.update_game_exp）。
 """
 
+from datetime import datetime
+
 from config.database import db_transaction
 from services.exercise_rules import RuleError
 
@@ -74,6 +76,19 @@ def save_profile(user_id: int, game_name: str, real_name: str, gender: str,
     # Unity 端的 SaveUserProfile 每次都送完整的 UserProfile（含 equipped_outfit_id），
     # OutfitPanel 換裝也是走這條路（複製目前 Profile、改 equipped_outfit_id、整包存檔），
     # 不是走單獨的「換裝」端點，所以這裡要順便驗證解鎖狀態。
+    # App 沒換過裝時會送 0（沒有這套服裝）：當作「沒選服裝」，不要整包存檔失敗。
+    if equipped_outfit_id is not None and equipped_outfit_id <= 0:
+        equipped_outfit_id = None
+    # 沒填的欄位 App 會送空字串：當作沒填（空的生日寫進日期欄位會讓整包存檔失敗）。
+    real_name = (real_name or "").strip() or None
+    gender = (gender or "").strip() or None
+    birthdate = (birthdate or "").strip() or None
+    if birthdate is not None:
+        try:
+            datetime.strptime(birthdate[:10], "%Y-%m-%d")
+        except ValueError:
+            raise ValueError("生日格式要是 年-月-日，例如 1950-03-15")
+        birthdate = birthdate[:10]
     with db_transaction() as conn:
         with conn.cursor() as cur:
             if equipped_outfit_id is not None and not _outfit_unlocked(cur, user_id, equipped_outfit_id):

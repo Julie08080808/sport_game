@@ -1,7 +1,10 @@
 """
 個人檔案控制器 (Controller)
-對應 Unity SilverHealth 模組的 IDataService。使用者一律用路徑上的 user_id，
-之後要防 IDOR 的話可以改走跟 /api/assistant/chat 一樣的 session token 驗證。
+對應 Unity SilverHealth 模組的 IDataService。
+
+2026-11-20 起：路徑上有 {user_id} 的 API 一律要帶登入 token（Authorization: Bearer <token>，
+跟 /api/assistant/chat 一樣），而且 token 必須是同一個人，否則回 401／403——
+不能再改網址上的數字就讀寫別人的過敏原、慢性病。清單類（catalog）不用登入。
 
 API 設計：
     GET  /api/profile/{user_id}                       基本資料 + 唯讀等級經驗
@@ -26,10 +29,11 @@ import shutil
 import uuid
 from typing import List, Literal, Optional
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, UploadFile, File, Query
 from pydantic import BaseModel, Field
 
 from models import profile_model
+from services import auth_service
 from services.exercise_rules import RuleError
 
 router = APIRouter(prefix="/api/profile", tags=["Profile"])
@@ -48,9 +52,26 @@ def _call(fn, *args, **kwargs):
         raise HTTPException(503, detail="暫時無法處理個人檔案，請稍後再試") from e
 
 
+def require_owner(user_id: int, authorization: Optional[str] = Header(None)) -> int:
+    """登入 token 必須是路徑上這個 user_id 本人。Authorization 可以是 "<token>" 或 "Bearer <token>"。"""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="未登入")
+
+    token = authorization[7:] if authorization.lower().startswith("bearer ") else authorization
+    token_user = auth_service.get_user_id_from_token(token.strip())
+    if token_user is None:
+        raise HTTPException(status_code=401, detail="登入已過期，請重新登入")
+    if token_user != user_id:
+        raise HTTPException(status_code=403, detail="不能讀寫別人的個人檔案")
+    return user_id
+
+
+OWNER_ONLY = [Depends(require_owner)]
+
+
 # ───────────── 基本資料 ─────────────
 
-@router.get("/{user_id}")
+@router.get("/{user_id}", dependencies=OWNER_ONLY)
 def get_profile(user_id: int):
     return dict(success=True, data=_call(profile_model.get_profile, user_id))
 
@@ -72,7 +93,7 @@ class ProfileSaveRequest(BaseModel):
     is_mobility_limited: Optional[bool] = None
 
 
-@router.put("/{user_id}")
+@router.put("/{user_id}", dependencies=OWNER_ONLY)
 def save_profile(user_id: int, req: ProfileSaveRequest):
     # Unity 端換裝（OutfitPanel）也是整包 Profile 存這裡，不是走單獨的換裝端點，
     # 所以 equipped_outfit_id 的解鎖驗證放在 profile_model.save_profile 裡面。
@@ -82,7 +103,7 @@ def save_profile(user_id: int, req: ProfileSaveRequest):
         req.is_on_medication, req.diet_type, req.is_mobility_limited, req.mobility_level))
 
 
-@router.post("/{user_id}/avatar")
+@router.post("/{user_id}/avatar", dependencies=OWNER_ONLY)
 async def upload_avatar(user_id: int, file: UploadFile = File(...)):
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="只允許上傳圖片檔案")
@@ -110,7 +131,7 @@ def health_condition_catalog():
     return dict(success=True, items=_call(profile_model.get_health_condition_catalog))
 
 
-@router.get("/{user_id}/health-conditions")
+@router.get("/{user_id}/health-conditions", dependencies=OWNER_ONLY)
 def user_health_conditions(user_id: int):
     return dict(success=True, items=_call(profile_model.get_user_health_conditions, user_id))
 
@@ -124,7 +145,7 @@ class HealthConditionSaveRequest(BaseModel):
     items: List[HealthConditionItem]
 
 
-@router.put("/{user_id}/health-conditions")
+@router.put("/{user_id}/health-conditions", dependencies=OWNER_ONLY)
 def save_user_health_conditions(user_id: int, req: HealthConditionSaveRequest):
     items = [i.model_dump() for i in req.items]
     return dict(success=True, items=_call(profile_model.save_user_health_conditions, user_id, items))
@@ -137,7 +158,7 @@ def allergen_catalog():
     return dict(success=True, items=profile_model.get_allergen_catalog())
 
 
-@router.get("/{user_id}/allergies")
+@router.get("/{user_id}/allergies", dependencies=OWNER_ONLY)
 def user_allergies(user_id: int):
     return dict(success=True, items=_call(profile_model.get_user_allergies, user_id))
 
@@ -146,7 +167,7 @@ class AllergySaveRequest(BaseModel):
     names: List[str] = Field(default_factory=list, max_length=9)
 
 
-@router.put("/{user_id}/allergies")
+@router.put("/{user_id}/allergies", dependencies=OWNER_ONLY)
 def save_user_allergies(user_id: int, req: AllergySaveRequest):
     # 不在 9 個類別內 → ValueError → _call 轉成 409，訊息會列出可選的類別。
     return dict(success=True, items=_call(profile_model.save_user_allergies, user_id, req.names))
@@ -154,14 +175,14 @@ def save_user_allergies(user_id: int, req: AllergySaveRequest):
 
 # ───────────── 換裝 ─────────────
 
-@router.get("/{user_id}/outfits")
+@router.get("/{user_id}/outfits", dependencies=OWNER_ONLY)
 def outfits(user_id: int):
     return dict(success=True, items=_call(profile_model.get_outfits, user_id))
 
 
 # ───────────── 成就 ─────────────
 
-@router.get("/{user_id}/achievements")
+@router.get("/{user_id}/achievements", dependencies=OWNER_ONLY)
 def achievements(user_id: int):
     return dict(success=True, items=_call(profile_model.get_achievements, user_id))
 
@@ -170,7 +191,7 @@ class DisplayedAchievementsRequest(BaseModel):
     achievement_ids: List[int]
 
 
-@router.put("/{user_id}/achievements/displayed")
+@router.put("/{user_id}/achievements/displayed", dependencies=OWNER_ONLY)
 def save_displayed_achievements(user_id: int, req: DisplayedAchievementsRequest):
     return dict(success=True, items=_call(
         profile_model.save_displayed_achievements, user_id, req.achievement_ids))
@@ -178,7 +199,7 @@ def save_displayed_achievements(user_id: int, req: DisplayedAchievementsRequest)
 
 # ───────────── 個人設定 ─────────────
 
-@router.get("/{user_id}/settings")
+@router.get("/{user_id}/settings", dependencies=OWNER_ONLY)
 def get_settings(user_id: int):
     return dict(success=True, data=_call(profile_model.get_settings, user_id))
 
@@ -191,7 +212,7 @@ class SettingsSaveRequest(BaseModel):
     tts_enabled: bool = False
 
 
-@router.put("/{user_id}/settings")
+@router.put("/{user_id}/settings", dependencies=OWNER_ONLY)
 def save_settings(user_id: int, req: SettingsSaveRequest):
     return dict(success=True, data=_call(
         profile_model.save_settings, user_id, req.font_size, req.master_volume,
@@ -200,7 +221,7 @@ def save_settings(user_id: int, req: SettingsSaveRequest):
 
 # ───────────── 運動紀錄 ─────────────
 
-@router.get("/{user_id}/exercise-sessions")
+@router.get("/{user_id}/exercise-sessions", dependencies=OWNER_ONLY)
 def exercise_sessions(user_id: int, date_from: str = Query(...), date_to: str = Query(...)):
     return dict(success=True, items=_call(
         profile_model.get_exercise_sessions, user_id, date_from, date_to))
@@ -216,14 +237,14 @@ class DietReviewSaveRequest(BaseModel):
     ai_observation: str = ""
 
 
-@router.put("/{user_id}/diet-review")
+@router.put("/{user_id}/diet-review", dependencies=OWNER_ONLY)
 def save_diet_review(user_id: int, req: DietReviewSaveRequest):
     return dict(success=True, data=_call(
         profile_model.save_weekly_diet_review, user_id, req.week_monday,
         req.vegetable_score, req.fried_score, req.variety_score, req.ai_observation))
 
 
-@router.get("/{user_id}/diet-review/latest")
+@router.get("/{user_id}/diet-review/latest", dependencies=OWNER_ONLY)
 def latest_diet_review(user_id: int):
     data = _call(profile_model.get_latest_weekly_diet_review, user_id)
     if data is None:
