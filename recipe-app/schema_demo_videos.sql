@@ -8,12 +8,16 @@
 --   STEP_STANDING         腳踏步.mp4        踏步挑戰、每日踏步挑戰、森林散步
 --   STEP_SEATED           坐腳踏步.mp4      坐著踏步推椰子、坐著踏步清小路（不能久站）
 --   LEG_SIDE_RAISE_WALL   扶牆側抬腳.mp4    踢開椰子、清出椰子小路
---   BALL_HAND_PRESS       球類示範影片.mp4  每日握球挑戰、撈魚挑戰、穩住撈網
---   （ARM_SIDE_RAISE 手側邊.mp4 已放進 Unity 影片清單，但目前沒有任務使用）
+--   （球類示範影片.mp4 是教「怎麼連接感測球」的，2026-11-20 使用者確認；不當動作示範，
+--    改放在 Unity 連接感測球畫面的「看怎麼連線」按鈕。握球類任務的動作示範先顯示圖片）
+--   BICEP_CURL            手側邊.mp4        搬地瓜（計次、計時）、拉藤蔓過小溪
+--                         （檔名是「手側邊」，內容是二頭彎舉，2026-11-20 使用者確認）
 --
 -- 還沒有影片（準備畫面會顯示空白／備用圖）：
 --   抬手（抬手挑戰、每日抬手挑戰、採茭白筍、伸手摘松果）——另外拍抬手影片，先清空
---   二頭彎舉（搬地瓜 ×2、拉藤蔓過小溪）、雙腳踩球（水車補水、讓水車一直轉）
+--   雙腳踩球（水車補水、讓水車一直轉）
+--   這些任務先暫停發放：schema_hide_tasks_without_video.sql
+--   握球（每日握球挑戰、撈魚挑戰、穩住撈網）沒有動作示範影片，但照常發放（顯示圖片）
 --
 -- 另外：踢開椰子、清出椰子小路的正確（對長輩安全的）動作是「扶著牆，把腳往側邊抬起」，
 -- 這裡一併把任務說明和山林猴的對話改成這個動作。
@@ -41,9 +45,13 @@ JOIN (VALUES
     ('MONKEY_ARM_RAISE_001',       NULL),
     ('MONKEY_KICK_001',            'LEG_SIDE_RAISE_WALL'),
     ('MONKEY_KICK_TIME_001',       'LEG_SIDE_RAISE_WALL'),
-    ('FOX_DAILY_GRIP_001',         'BALL_HAND_PRESS'),
-    ('CAT_HAND_PRESS_001',         'BALL_HAND_PRESS'),
-    ('CAT_HAND_PRESS_TIME_001',    'BALL_HAND_PRESS')
+    -- 握球：球類影片是教連線的，不當動作示範（照常發放，準備畫面顯示圖片）
+    ('FOX_DAILY_GRIP_001',         NULL),
+    ('CAT_HAND_PRESS_001',         NULL),
+    ('CAT_HAND_PRESS_TIME_001',    NULL),
+    ('MITU_BICEP_CURL_001',        'BICEP_CURL'),
+    ('MITU_BICEP_CURL_TIME_001',   'BICEP_CURL'),
+    ('MONKEY_BICEP_CURL_001',      'BICEP_CURL')
 ) AS v(task_key, video_key) ON v.task_key = t.task_key
 WHERE s.task_id = t.task_id
   AND s.story_phase = 'intro';
