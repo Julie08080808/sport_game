@@ -12,11 +12,11 @@
 --    改放在 Unity 連接感測球畫面的「看怎麼連線」按鈕。握球類任務的動作示範先顯示圖片）
 --   BICEP_CURL            手側邊.mp4        搬地瓜（計次、計時）、拉藤蔓過小溪
 --                         （檔名是「手側邊」，內容是二頭彎舉，2026-11-20 使用者確認）
+--   ARM_RAISE             抬手示範影片.mp4  抬手挑戰、每日抬手挑戰、採茭白筍、伸手摘松果（2026-11-21 加入）
 --
 -- 還沒有影片（準備畫面會顯示空白／備用圖）：
---   抬手（抬手挑戰、每日抬手挑戰、採茭白筍、伸手摘松果）——另外拍抬手影片，先清空
 --   雙腳踩球（水車補水、讓水車一直轉）
---   這些任務先暫停發放：schema_hide_tasks_without_video.sql
+--   沒有影片的任務先暫停發放：schema_hide_tasks_without_video.sql
 --   握球（每日握球挑戰、撈魚挑戰、穩住撈網）沒有動作示範影片，但照常發放（顯示圖片）
 --
 -- 另外：踢開椰子、清出椰子小路的正確（對長輩安全的）動作是「扶著牆，把腳往側邊抬起」，
@@ -38,11 +38,10 @@ JOIN (VALUES
     ('MONKEY_STEP_TIME_001',       'STEP_STANDING'),
     ('MONKEY_SEATED_STEP_001',     'STEP_SEATED'),
     ('MONKEY_SEATED_STEP_002',     'STEP_SEATED'),
-    -- 抬手另外有影片，先清空（NULL），拍好後填新代號
-    ('MITU_HAND_RAISE_001',        NULL),
-    ('FOX_DAILY_HAND_RAISE_001',   NULL),
-    ('MITU_HAND_RAISE_TIME_001',   NULL),
-    ('MONKEY_ARM_RAISE_001',       NULL),
+    ('MITU_HAND_RAISE_001',        'ARM_RAISE'),
+    ('FOX_DAILY_HAND_RAISE_001',   'ARM_RAISE'),
+    ('MITU_HAND_RAISE_TIME_001',   'ARM_RAISE'),
+    ('MONKEY_ARM_RAISE_001',       'ARM_RAISE'),
     ('MONKEY_KICK_001',            'LEG_SIDE_RAISE_WALL'),
     ('MONKEY_KICK_TIME_001',       'LEG_SIDE_RAISE_WALL'),
     -- 握球：球類影片是教連線的，不當動作示範（照常發放，準備畫面顯示圖片）
