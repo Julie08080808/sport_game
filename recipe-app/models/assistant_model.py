@@ -32,6 +32,9 @@ WORKER_MODEL = "mini"
 # 逾時或呼叫失敗固定回這句，不重試——長輩等不了第二輪。
 FALLBACK_REPLY = "我這邊有點慢，等一下再跟我說好嗎"
 
+DIET_LABELS = {"None": "一般", "Vegan": "全素"}
+MOBILITY_LABELS = {"normal": "方便", "no_standing": "不能久站", "no_legs": "腳不方便動"}
+
 MAX_GAMES = 3
 MAX_RECIPES = 3
 
@@ -43,9 +46,14 @@ _PROFILE_SQL = """
       coalesce(h.condition_ids, ARRAY[]::int[])                      AS condition_ids,
       coalesce(p.is_on_medication, false)                            AS is_on_medication,
       coalesce(p.diet_type, 'None')                                  AS diet_type,
-      coalesce(h.need_soft, false)                                   AS need_soft
+      coalesce(h.need_soft, false)                                   AS need_soft,
+      CASE WHEN acc.user_id IS NULL THEN 'normal'
+           WHEN NOT acc.allow_leg_exercise THEN 'no_legs'
+           WHEN NOT acc.allow_standing_exercise THEN 'no_standing'
+           ELSE 'normal' END                                         AS mobility_level
     FROM users u
     LEFT JOIN user_profiles p ON p.user_id = u.user_id
+    LEFT JOIN user_accessibility_profiles acc ON acc.user_id = u.user_id
     LEFT JOIN LATERAL (
       SELECT string_agg(allergen_name, '、' ORDER BY allergen_name) AS allergens
       FROM user_allergies
@@ -240,7 +248,7 @@ def get_profile(user_id: int) -> dict:
     if not row:
         return {"displayName": "", "allergies": "", "chronicConditions": "",
                 "condition_ids": [], "is_on_medication": False,
-                "diet_type": "None", "need_soft": False}
+                "diet_type": "None", "need_soft": False, "mobility_level": "normal"}
     return dict(row)
 
 
@@ -355,6 +363,10 @@ def build_chat_reply(user_id: int, req: dict) -> dict:
             "allergies": profile["allergies"],
             "chronicConditions": profile["chronicConditions"],
             "isOnMedication": bool(profile.get("is_on_medication")),
+            # 2026-11-20 新增，給阿明參考（Worker 要另外讀這兩個欄位才會用到；沒讀也不影響）：
+            # dietType：一般 / 全素；mobility：方便 / 不能久站 / 腳不方便動
+            "dietType": DIET_LABELS.get(profile.get("diet_type"), "一般"),
+            "mobility": MOBILITY_LABELS.get(profile.get("mobility_level"), "方便"),
         },
         "lastUserMessage": req.get("lastUserMessage", ""),
         "lastReply": req.get("lastReply", ""),
