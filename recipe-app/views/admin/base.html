@@ -26,7 +26,15 @@
   <main class="main">
     <header class="topbar">
       <div><h1>{% block page_title %}管理後台{% endblock %}</h1><p>{% block page_subtitle %}管理遊戲內容與玩家資料{% endblock %}</p></div>
-      <a class="ghost-btn" href="/docs" target="_blank">API 文件 ↗</a>
+      <div class="topbar-actions">
+        <a class="ghost-btn" href="/docs" target="_blank">API 文件 ↗</a>
+        {% if request.state.admin_username %}
+        <form method="post" action="/admin/logout" class="logout-form">
+          <span class="admin-user">{{ request.state.admin_username }}</span>
+          <button class="ghost-btn" type="submit">登出</button>
+        </form>
+        {% endif %}
+      </div>
     </header>
     <section class="content">{% block content %}{% endblock %}</section>
   </main>

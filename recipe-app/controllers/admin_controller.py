@@ -1,10 +1,16 @@
-from fastapi import APIRouter, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from models import admin_model, admin_test_model
+from services.admin_auth import require_admin
 
-router = APIRouter(prefix="/admin", tags=["Admin Web"])
+# 這裡的每一頁都要先登入（登入頁在 admin_auth_controller，不受這個限制）。
+router = APIRouter(
+    prefix="/admin",
+    tags=["Admin Web"],
+    dependencies=[Depends(require_admin)],
+)
 templates = Jinja2Templates(directory="views")
 
 

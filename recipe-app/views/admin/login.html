@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>登入｜樂齡運動管理後台</title>
+  <link rel="stylesheet" href="/static/admin/admin.css">
+</head>
+<body class="login-body">
+<main class="login-wrap">
+  <section class="panel login-card">
+    <div class="brand login-brand">
+      <div class="brand-mark">樂</div>
+      <div><strong>樂齡運動</strong><small>管理後台</small></div>
+    </div>
+    <h1>登入</h1>
+    <p class="login-sub">請輸入管理員帳號與密碼</p>
+
+    {% if error %}
+    <div class="notice {% if error == '已登出' %}success{% else %}error{% endif %}" role="alert">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/admin/login" class="login-form">
+      <input type="hidden" name="next" value="{{ next }}">
+      <label><span>帳號</span><input name="username" value="{{ username }}" autocomplete="username" required autofocus></label>
+      <label><span>密碼</span><input name="password" type="password" autocomplete="current-password" required></label>
+      <button class="primary-btn" type="submit">登入</button>
+    </form>
+  </section>
+</main>
+</body>
+</html>

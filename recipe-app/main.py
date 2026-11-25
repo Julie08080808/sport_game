@@ -152,34 +152,69 @@ ENABLE_DEV_ADMIN = (
 )
 
 
-if APP_ENV != "production" and ENABLE_DEV_ADMIN:
+DEV_ADMIN_MODE = APP_ENV != "production" and ENABLE_DEV_ADMIN
 
-    from controllers import (
-        admin_test_controller,
-        admin_controller,
-    )
+if DEV_ADMIN_MODE:
 
-    # 開發測試 API
+    from controllers import admin_test_controller
+
+    # 開發測試 API（沒有登入保護，所以只在開發環境載入）
     app.include_router(
         admin_test_controller.router
     )
 
-    # 網頁版管理後台
-    app.include_router(
-        admin_controller.router
-    )
-
     print(
-        f"[DEV] Admin test API + Admin Web enabled "
+        f"[DEV] Admin test API enabled "
         f"(APP_ENV={APP_ENV})"
     )
 
 else:
 
     print(
-        f"[INFO] Admin tools disabled "
+        f"[INFO] Admin test API disabled "
         f"(APP_ENV={APP_ENV})"
     )
+
+
+# ============================================================
+# 7-1. 網頁版管理後台 /admin（需要登入）
+# ============================================================
+# 開發環境（上面的 DEV_ADMIN_MODE）預設開啟；
+# 正式 Server 要另外設 ENABLE_ADMIN_WEB=true 才會開。
+# 兩種情況都必須在 .env 設好 ADMIN_USERNAME / ADMIN_PASSWORD_HASH /
+# ADMIN_SESSION_SECRET（跑 scripts/set_admin_password.py），否則不載入。
+# ============================================================
+
+ENABLE_ADMIN_WEB = (
+    os.getenv(
+        "ENABLE_ADMIN_WEB",
+        "false"
+    ).strip().lower() == "true"
+)
+
+if DEV_ADMIN_MODE or ENABLE_ADMIN_WEB:
+
+    from services import admin_auth
+
+    missing_admin_settings = admin_auth.missing_settings()
+
+    if missing_admin_settings:
+        print(
+            "[WARN] Admin Web disabled: .env 缺少 "
+            + ", ".join(missing_admin_settings)
+            + "（執行 python scripts/set_admin_password.py 設定）"
+        )
+    else:
+        from controllers import admin_auth_controller, admin_controller
+
+        app.include_router(admin_auth_controller.router)
+        app.include_router(admin_controller.router)
+
+        print("[INFO] Admin Web enabled at /admin (login required)")
+
+else:
+
+    print("[INFO] Admin Web disabled")
 
 
 # ============================================================
