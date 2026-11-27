@@ -21,10 +21,10 @@ from threading import Lock
 
 from fastapi import HTTPException, Request
 
+from services.password_hashing import hash_password, verify_password
+
 COOKIE_NAME = "admin_session"
 COOKIE_PATH = "/admin"
-
-PBKDF2_ITERATIONS = 600_000
 
 # 連續失敗 MAX_FAILURES 次（在 FAILURE_WINDOW 秒內）就鎖 LOCKOUT_SECONDS 秒
 MAX_FAILURES = 5
@@ -75,34 +75,12 @@ def missing_settings() -> list[str]:
     return missing
 
 
-# ------------------------------------------------------------
-# 密碼
-# ------------------------------------------------------------
-def hash_password(password: str, iterations: int = PBKDF2_ITERATIONS) -> str:
-    salt = secrets.token_bytes(16)
-    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
-    return f"pbkdf2_sha256:{iterations}:{salt.hex()}:{digest.hex()}"
-
-
-def _verify_password(password: str, stored: str) -> bool:
-    try:
-        scheme, iterations, salt_hex, digest_hex = stored.split(":")
-        if scheme != "pbkdf2_sha256":
-            return False
-        digest = hashlib.pbkdf2_hmac(
-            "sha256", password.encode("utf-8"), bytes.fromhex(salt_hex), int(iterations)
-        )
-        return hmac.compare_digest(digest.hex(), digest_hex)
-    except (ValueError, TypeError):
-        return False
-
-
 def check_credentials(username: str, password: str) -> bool:
     if missing_settings():
         return False
     # 帳號和密碼都要算完再判斷，不讓回應時間洩漏帳號對不對。
     user_ok = hmac.compare_digest(username.strip().encode("utf-8"), _username().encode("utf-8"))
-    pass_ok = _verify_password(password, _password_hash())
+    pass_ok = verify_password(password, _password_hash())
     return user_ok and pass_ok
 
 

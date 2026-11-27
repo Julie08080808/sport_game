@@ -1,0 +1,165 @@
+{% extends "care/base.html" %}
+{% block title %}{{ resident.username }}{% endblock %}
+{% block page_title %}{{ resident.username }}{% endblock %}
+{% block page_subtitle %}長者編號 #{{ resident.user_id }} · {{ range_label }}{% endblock %}
+{% block content %}
+<section class="panel detail-tabs"><a class="ghost-btn" href="/care/residents{% if back %}?{{ back }}{% endif %}">← 返回長者名單</a>
+  <div class="row-actions">
+    <a class="mini-btn {% if range == 'week' %}secondary{% endif %}" href="?range=week&amp;back={{ back|urlencode }}">近 7 天</a>
+    <a class="mini-btn {% if range == 'month' %}secondary{% endif %}" href="?range=month&amp;back={{ back|urlencode }}">近 30 天</a>
+    <a class="mini-btn {% if range == 'year' %}secondary{% endif %}" href="?range=year&amp;back={{ back|urlencode }}">近 12 個月</a>
+  </div>
+</section>
+
+{% set total_hand = breakdown.hand.total %}
+{% set total_leg = breakdown.leg.total %}
+{% set total_ball = breakdown.ball.total %}
+{% set total_full = breakdown.full_body.total %}
+{% set grand_total = total_hand + total_leg + total_ball + total_full %}
+<div class="stat-grid">
+  <article class="stat-card"><div class="stat-icon soft-blue">手</div><div><span>{{ range_label }}手部完成</span><strong>{{ total_hand }}</strong></div></article>
+  <article class="stat-card"><div class="stat-icon soft-green">腳</div><div><span>{{ range_label }}腳部完成</span><strong>{{ total_leg }}</strong></div></article>
+  <article class="stat-card"><div class="stat-icon soft-orange">球</div><div><span>{{ range_label }}壓力球完成</span><strong>{{ total_ball }}</strong></div></article>
+  <article class="stat-card"><div class="stat-icon soft-purple">身</div><div><span>{{ range_label }}全身完成</span><strong>{{ total_full }}</strong></div></article>
+</div>
+
+<section class="panel" style="padding:22px;margin-top:16px">
+  <h2>運動類型分佈（{{ range_label }}，滑鼠移到切片上看細項）</h2>
+  {% if grand_total > 0 %}
+  <div class="two-col"><div class="chart-frame donut"><canvas id="breakdownChart" role="img" aria-label="運動類型分布，詳細數值見旁邊清單"></canvas></div><div class="detail-list">{% for key,label in category_labels.items() %}<details open><summary>{{ label }} · {{ breakdown[key].total }} 次（{{ (breakdown[key].total / grand_total * 100)|round|int }}%）</summary><ul>{% for item in breakdown[key]["items"] %}<li>{{ item.exercise_name }}：{{ item.count }} 次</li>{% else %}<li>沒有紀錄</li>{% endfor %}</ul></details>{% endfor %}</div></div>
+  {% else %}
+  <div class="empty-state">{{ range_label }}內沒有任何完成紀錄</div>
+  {% endif %}
+</section>
+
+<section class="panel" style="padding:22px;margin-top:16px">
+  <h2>運動完成次數趨勢（{{ range_label }}，依類型堆疊）</h2>
+  {% if trend %}
+  <div class="chart-frame"><canvas id="trendChart" role="img" aria-label="運動趨勢，數值見下方表格"></canvas></div>
+  {% else %}
+  <div class="empty-state">{{ range_label }}內沒有任何完成紀錄</div>
+  {% endif %}
+</section>
+
+{% if trend %}
+<section class="panel table-panel" style="margin-top:16px"><div class="table-wrap"><table>
+<thead><tr><th>日期</th><th>手</th><th>腳</th><th>球</th><th>全身</th><th>合計</th></tr></thead>
+<tbody>
+{% for p in trend %}
+<tr>
+  <td>{{ p.date }}</td><td>{{ p.hand }}</td><td>{{ p.leg }}</td><td>{{ p.ball }}</td><td>{{ p.full_body }}</td>
+  <td><strong>{{ p.hand + p.leg + p.ball + p.full_body }}</strong></td>
+</tr>
+{% endfor %}
+</tbody></table></div></section>
+{% endif %}
+
+<section class="panel" style="padding:22px;margin-top:16px">
+  <h2>飲食週報趨勢（最近 12 週）</h2>
+  {% if diet %}
+  <div class="chart-frame"><canvas id="dietChart" role="img" aria-label="飲食週報趨勢，數值見下方表格"></canvas></div><p class="chart-note">蔬菜及多樣性越高越好；油炸分數越低越好。AI 評分僅供照護參考，不是醫療診斷。</p>{% if diet[-1].ai_observation %}<div class="observation"><strong>最近一份 AI 飲食觀察（{{ diet[-1].week_monday }}）</strong><br>{{ diet[-1].ai_observation }}</div>{% endif %}
+  {% else %}
+  <div class="empty-state">目前還沒有飲食週報資料</div>
+  {% endif %}
+</section>
+
+{% if diet %}
+<section class="panel table-panel" style="margin-top:16px"><div class="table-wrap"><table>
+<thead><tr><th>週一日期</th><th>蔬菜</th><th>油炸（越低越好）</th><th>多樣性</th></tr></thead>
+<tbody>
+{% for d in diet %}
+<tr><td>{{ d.week_monday }}</td><td>{{ d.vegetable_score if d.vegetable_score is not none else "-" }}</td><td>{{ d.fried_score if d.fried_score is not none else "-" }}</td><td>{{ d.variety_score if d.variety_score is not none else "-" }}</td></tr>
+{% endfor %}
+</tbody></table></div></section>
+{% endif %}
+
+<script src="/static/vendor/chart.umd.min.js"></script>
+<script>
+if (typeof Chart !== "undefined") { Chart.defaults.font.family = "system-ui, Microsoft JhengHei, sans-serif"; Chart.defaults.color = "#526b66"; Chart.defaults.plugins.legend.labels.usePointStyle = true; }
+{% if grand_total > 0 %}
+const breakdownData = {{ breakdown | tojson }};
+const bucketOrder = ['hand', 'leg', 'ball', 'full_body'];
+const bucketLabels = {{ category_labels | tojson }};
+const bucketColors = { hand: '#5489D1', leg: '#40A58A', ball: '#E9A454', full_body: '#9B83CC' };
+
+if (typeof Chart !== "undefined") new Chart(document.getElementById('breakdownChart'), {
+  type: 'doughnut',
+  data: {
+    labels: bucketOrder.map(b => bucketLabels[b]),
+    datasets: [{
+      data: bucketOrder.map(b => breakdownData[b].total),
+      backgroundColor: bucketOrder.map(b => bucketColors[b]),
+    }],
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: "68%",
+    plugins: {
+      legend: { position: 'bottom' },
+      tooltip: {
+        callbacks: {
+          label: function (ctx) {
+            const bucketKey = bucketOrder[ctx.dataIndex];
+            const info = breakdownData[bucketKey];
+            const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+            const pct = total > 0 ? Math.round((info.total / total) * 100) : 0;
+            const lines = [`${bucketLabels[bucketKey]}運動完成任務數：${info.total}（${pct}%）`];
+            info.items.forEach(item => {
+              lines.push(`　${item.exercise_name}次數：${item.count} 次`);
+            });
+            if (info.items.length === 0) lines.push('　（這個類型沒有紀錄）');
+            return lines;
+          },
+        },
+      },
+    },
+  },
+});
+{% endif %}
+
+{% if trend %}
+if (typeof Chart !== "undefined") new Chart(document.getElementById('trendChart'), {
+  type: 'bar',
+  data: {
+    labels: {{ trend | map(attribute='date') | list | tojson }},
+    datasets: [
+      { label: '手', data: {{ trend | map(attribute='hand') | list | tojson }}, backgroundColor: '#5489D1', maxBarThickness: 56 },
+      { label: '腳', data: {{ trend | map(attribute='leg') | list | tojson }}, backgroundColor: '#40A58A', maxBarThickness: 56 },
+      { label: '球', data: {{ trend | map(attribute='ball') | list | tojson }}, backgroundColor: '#E9A454', maxBarThickness: 56 },
+      { label: '全身', data: {{ trend | map(attribute='full_body') | list | tojson }}, backgroundColor: '#9B83CC', maxBarThickness: 56 },
+    ],
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    aspectRatio: 2.6,
+    scales: {
+      x: { stacked: true, grid: { display: false } },
+      y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } },
+    },
+  },
+});
+{% endif %}
+
+{% if diet %}
+if (typeof Chart !== "undefined") new Chart(document.getElementById('dietChart'), {
+  type: 'line',
+  data: {
+    labels: {{ diet | map(attribute='week_monday') | list | tojson }},
+    datasets: [
+      { label: '蔬菜', data: {{ diet | map(attribute='vegetable_score') | list | tojson }}, borderColor: '#247C70', tension: .3 },
+      { label: '油炸（越低越好）', data: {{ diet | map(attribute='fried_score') | list | tojson }}, borderColor: '#c97b4a', tension: .3 },
+      { label: '多樣性', data: {{ diet | map(attribute='variety_score') | list | tojson }}, borderColor: '#5f7fb0', tension: .3 },
+    ],
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    aspectRatio: 2.6,
+    scales: { y: { min: 1, max: 5, ticks: { stepSize: 1 } } },
+  },
+});
+{% endif %}
+</script>
+{% endblock %}

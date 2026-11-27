@@ -1,0 +1,67 @@
+{% extends "care/base.html" %}
+{% block title %}總覽{% endblock %}
+{% block page_title %}總覽{% endblock %}
+{% block page_subtitle %}{{ caregiver.center_name }} 整體運動概況{% endblock %}
+{% block content %}
+<div class="hero"><div><h2>掌握中心的活動概況</h2><p>以完成任務紀錄了解長者的運動參與情形。</p></div><a class="primary-btn" href="/care/residents">查看長者名單 →</a></div>
+<div class="stat-grid">
+  <article class="stat-card"><div class="stat-icon soft-blue">人</div><div><span>中心長者人數</span><strong>{{ resident_count }}<small>人</small></strong></div></article>
+  <article class="stat-card"><div class="stat-icon soft-green">日</div><div><span>平均每日完成次數</span><strong>{{ avg_per_day }}<small>次／人</small></strong></div></article>
+  <article class="stat-card"><div class="stat-icon soft-orange">週</div><div><span>平均每週完成次數</span><strong>{{ avg_per_week }}<small>次／人</small></strong></div></article>
+  <article class="stat-card"><div class="stat-icon soft-purple">天</div><div><span>平均運動天數（近 7 天）</span><strong>{{ avg_days_active_week }}<small>天／人</small></strong></div></article>
+  <article class="stat-card"><div class="stat-icon soft-purple">月</div><div><span>平均運動天數（近 30 天）</span><strong>{{ avg_days_active_month }}<small>天／人</small></strong></div></article>
+</div>
+<p class="muted-line">※ 以上數據以「最近 7 天 / 30 天」計算，只計入狀態為「完成」的運動紀錄；沒有運動紀錄的長者以 0 天計入平均。</p>
+
+<section class="panel" style="padding:22px;margin-bottom:16px">
+  <h2>中心運動趨勢</h2>
+  <p class="chart-note">最近 7 天 · 按運動類型顯示完成任務次數</p>
+  {% if trend %}
+  <div class="chart-frame"><canvas id="centerTrendChart" role="img" aria-label="中心每日運動堆疊長條圖，數值見下方表格"></canvas></div>
+  {% else %}
+  <div class="empty-state">最近 7 天中心內沒有任何完成紀錄</div>
+  {% endif %}
+</section>
+
+{% if trend %}
+<section class="panel table-panel"><div class="table-title"><h2>每日詳細數據</h2></div><div class="table-wrap"><table>
+<thead><tr><th>日期</th><th>手</th><th>腳</th><th>球</th><th>全身</th><th>當日合計</th></tr></thead>
+<tbody>
+{% for p in trend %}
+<tr>
+  <td>{{ p.date }}</td><td>{{ p.hand }}</td><td>{{ p.leg }}</td><td>{{ p.ball }}</td><td>{{ p.full_body }}</td>
+  <td><strong>{{ p.hand + p.leg + p.ball + p.full_body }}</strong></td>
+</tr>
+{% endfor %}
+</tbody></table></div></section>
+{% endif %}
+
+{% if trend %}
+<script src="/static/vendor/chart.umd.min.js"></script>
+<script>
+if (typeof Chart !== "undefined") { Chart.defaults.font.family = "system-ui, Microsoft JhengHei, sans-serif"; Chart.defaults.color = "#526b66"; Chart.defaults.plugins.legend.labels.usePointStyle = true; }
+const centerLabels = {{ trend | map(attribute='date') | list | tojson }};
+if (typeof Chart !== "undefined") new Chart(document.getElementById('centerTrendChart'), {
+  type: 'bar',
+  data: {
+    labels: centerLabels,
+    datasets: [
+      { label: '手', data: {{ trend | map(attribute='hand') | list | tojson }}, backgroundColor: '#5489D1', maxBarThickness: 56 },
+      { label: '腳', data: {{ trend | map(attribute='leg') | list | tojson }}, backgroundColor: '#40A58A', maxBarThickness: 56 },
+      { label: '球', data: {{ trend | map(attribute='ball') | list | tojson }}, backgroundColor: '#E9A454', maxBarThickness: 56 },
+      { label: '全身', data: {{ trend | map(attribute='full_body') | list | tojson }}, backgroundColor: '#9B83CC', maxBarThickness: 56 },
+    ],
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    aspectRatio: 3,
+    scales: {
+      x: { stacked: true, grid: { display: false } },
+      y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } },
+    },
+  },
+});
+</script>
+{% endif %}
+{% endblock %}

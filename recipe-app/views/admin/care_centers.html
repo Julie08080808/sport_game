@@ -1,0 +1,30 @@
+{% extends "admin/base.html" %}
+{% block title %}照護中心{% endblock %}
+{% block page_title %}照護中心{% endblock %}
+{% block page_subtitle %}管理照護中心，以及把老人指派到中心{% endblock %}
+{% block content %}
+{% if saved %}<div class="notice success">已儲存</div>{% endif %}
+
+<section class="panel table-panel"><div class="table-wrap"><table>
+<thead><tr><th>照護中心</th><th>代碼</th><th>老人人數</th><th>狀態</th><th class="right">操作</th></tr></thead>
+<tbody>
+{% for c in centers %}
+<tr>
+  <td><strong>{{ c.center_name }}</strong></td>
+  <td>{{ c.center_code }}</td>
+  <td>{{ c.resident_count }}</td>
+  <td>{{ "啟用中" if c.is_active else "已停用" }}</td>
+  <td class="right"><a class="mini-btn" href="/admin/care-centers/{{ c.care_center_id }}">管理</a></td>
+</tr>
+{% else %}<tr><td colspan="5"><div class="empty-state">還沒有照護中心</div></td></tr>{% endfor %}
+</tbody></table></div></section>
+
+<section class="panel">
+  <h2>新增照護中心</h2>
+  <form method="post" action="/admin/care-centers/new" class="login-form">
+    <label><span>名稱</span><input name="center_name" placeholder="例如：陽光照護中心" required></label>
+    <label><span>代碼</span><input name="center_code" placeholder="例如：SUNSHINE，僅供識別，不對外顯示" required></label>
+    <button class="primary-btn" type="submit">新增</button>
+  </form>
+</section>
+{% endblock %}

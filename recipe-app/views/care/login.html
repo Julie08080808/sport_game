@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>登入｜照護中心後台</title>
+  <link rel="stylesheet" href="/static/care/care.css">
+</head>
+<body class="login-body">
+<main class="login-wrap">
+  <aside class="login-intro"><div class="brand"><div class="brand-mark">護</div><strong>樂活人生50+</strong></div><h2>每一次活動，<br>都是值得關注的進步。</h2><p>集中掌握長者的運動參與與飲食週報，讓照護紀錄更清楚、日常追蹤更方便。</p><p>中心專屬帳號 · 資料分區管理</p></aside>
+  <section class="panel login-card">
+    <div class="brand login-brand">
+      <div class="brand-mark">護</div>
+      <div><strong>照護中心後台</strong><small>樂齡運動</small></div>
+    </div>
+    <h1>照護者登入</h1>
+    <p class="login-sub">請輸入照護者帳號與密碼</p>
+
+    {% if error %}
+    <div class="notice {% if error == '已登出' %}success{% else %}error{% endif %}" role="alert">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/care/login" class="login-form">
+      <input type="hidden" name="next" value="{{ next }}">
+      <label><span>帳號</span><input name="username" value="{{ username }}" autocomplete="username" required autofocus></label>
+      <label><span>密碼</span><div class="password-row"><input id="password" name="password" type="password" autocomplete="current-password" required><button class="ghost-btn" type="button" id="toggle-password" aria-pressed="false">顯示</button></div></label>
+      <button class="primary-btn" type="submit">登入</button>
+    </form>
+  </section>
+</main>
+<script>const p=document.getElementById("password"), b=document.getElementById("toggle-password"); b.addEventListener("click",()=>{const show=p.type==="password";p.type=show?"text":"password";b.textContent=show?"隱藏":"顯示";b.setAttribute("aria-pressed",String(show));});</script>
+</body>
+</html>

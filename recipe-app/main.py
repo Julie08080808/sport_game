@@ -205,16 +205,54 @@ if DEV_ADMIN_MODE or ENABLE_ADMIN_WEB:
             + "（執行 python scripts/set_admin_password.py 設定）"
         )
     else:
-        from controllers import admin_auth_controller, admin_controller
+        from controllers import admin_auth_controller, admin_controller, admin_care_controller
 
         app.include_router(admin_auth_controller.router)
         app.include_router(admin_controller.router)
+        app.include_router(admin_care_controller.router)
 
         print("[INFO] Admin Web enabled at /admin (login required)")
 
 else:
 
     print("[INFO] Admin Web disabled")
+
+
+# ============================================================
+# 7-2. 照護中心後台 /care（獨立於 /admin 的多帳號登入）
+# ============================================================
+# 給照護中心的照護者看老人運動/飲食數據用，跟 /admin（單一系統管理員帳號，
+# 管任務設計）完全分開。帳密存在資料庫 caregiver_accounts（由 /admin 建立），
+# 只需要 .env 設 CARE_SESSION_SECRET（簽 cookie 用，至少 32 字元）。
+# 正式 Server 要另外設 ENABLE_CARE_WEB=true 才會開；開發環境預設開啟。
+# ============================================================
+
+ENABLE_CARE_WEB = (
+    os.getenv("ENABLE_CARE_WEB", "false").strip().lower() == "true"
+)
+
+if DEV_ADMIN_MODE or ENABLE_CARE_WEB:
+
+    from services import care_auth
+
+    missing_care_settings = care_auth.missing_settings()
+
+    if missing_care_settings:
+        print(
+            "[WARN] Care Portal disabled: .env 缺少 "
+            + ", ".join(missing_care_settings)
+        )
+    else:
+        from controllers import care_auth_controller, care_controller
+
+        app.include_router(care_auth_controller.router)
+        app.include_router(care_controller.router)
+
+        print("[INFO] Care Portal enabled at /care (login required)")
+
+else:
+
+    print("[INFO] Care Portal disabled")
 
 
 # ============================================================

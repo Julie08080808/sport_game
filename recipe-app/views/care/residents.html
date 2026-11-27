@@ -1,0 +1,16 @@
+{% extends "care/base.html" %}
+{% block title %}長者名單{% endblock %}
+{% block page_title %}長者活動管理{% endblock %}
+{% block page_subtitle %}搜尋長者、比較運動參與情況，並查看個人詳細紀錄{% endblock %}
+{% block content %}
+<section class="panel"><h2>搜尋與篩選</h2>
+<form method="get" action="/care/residents" class="filter-bar">
+<label><span>長者姓名</span><input name="q" value="{{ q }}" placeholder="輸入姓名搜尋"></label>
+<fieldset><legend>運動類型（可複選）</legend><div class="choices">{% for key,label in category_labels.items() %}<label><input type="checkbox" name="cat" value="{{ key }}" {% if key in selected_categories %}checked{% endif %}><span>{{ label }}</span></label>{% endfor %}</div></fieldset>
+<label><span>排序方式</span><select name="sort"><option value="desc" {% if sort != 'asc' %}selected{% endif %}>完成次數：多到少</option><option value="asc" {% if sort == 'asc' %}selected{% endif %}>完成次數：少到多</option></select></label>
+<button class="primary-btn" type="submit">套用篩選</button><a class="ghost-btn" href="/care/residents">清除</a>
+</form><p class="muted-line filter-meta">統計範圍：全部歷史完成紀錄。未勾選時加總所有類型；篩選不會隱藏其他類型的數據。</p></section>
+<section class="panel table-panel"><div class="table-title"><h2>長者名單 · {{ residents|length }} 人</h2><p class="muted-line">點選運動欄位可依該類型排序。</p></div><div class="table-wrap"><table>
+<thead><tr><th>長者姓名</th>{% for key,label in category_labels.items() %}<th><a href="?cat={{ key }}&amp;sort={{ 'asc' if selected_categories == [key] and sort == 'desc' else 'desc' }}&amp;q={{ q|urlencode }}">{{ label }} ⇅</a></th>{% endfor %}<th>{{ '篩選加總' if selected_categories else '總計' }}</th><th>最近完成日期</th><th class="right">操作</th></tr></thead>
+<tbody>{% for r in residents %}<tr><td><span class="avatar" aria-hidden="true">{{ r.username[:1] }}</span><strong>{{ r.username }}</strong></td><td>{{ r.hand_count }}</td><td>{{ r.leg_count }}</td><td>{{ r.ball_count }}</td><td>{{ r.full_body_count }}</td><td><span class="count-pill">{{ r.total_count }}</span></td><td>{{ r.last_completed_date or '尚無完成紀錄' }}</td><td class="right"><a class="mini-btn" href="/care/residents/{{ r.user_id }}?back={{ request.url.query|urlencode }}">查看詳細 →</a></td></tr>{% else %}<tr><td colspan="8"><div class="empty-state">{{ '沒有符合搜尋條件的長者' if q else '中心內尚未指派長者' }}</div></td></tr>{% endfor %}</tbody></table></div></section>
+{% endblock %}

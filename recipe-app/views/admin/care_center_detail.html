@@ -1,0 +1,71 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ center.center_name }}{% endblock %}
+{% block page_title %}{{ center.center_name }}{% endblock %}
+{% block page_subtitle %}代碼：{{ center.center_code }}{% endblock %}
+{% block content %}
+{% if saved %}<div class="notice success">已儲存</div>{% endif %}
+
+<section class="panel table-panel">
+  <h2>照護者帳號</h2>
+  <div class="table-wrap"><table>
+  <thead><tr><th>帳號</th><th>姓名</th><th>狀態</th><th class="right">操作</th></tr></thead>
+  <tbody>
+  {% for g in caregivers %}
+  <tr>
+    <td>{{ g.username }}</td>
+    <td>{{ g.display_name }}</td>
+    <td>{{ "啟用中" if g.is_active else "已停用" }}</td>
+    <td class="right">
+      <form method="post" action="/admin/care-centers/{{ center.care_center_id }}/caregivers/{{ g.caregiver_id }}/toggle" style="display:inline">
+        <input type="hidden" name="is_active" value="{{ '0' if g.is_active else '1' }}">
+        <button class="mini-btn" type="submit">{{ "停用" if g.is_active else "啟用" }}</button>
+      </form>
+    </td>
+  </tr>
+  {% else %}<tr><td colspan="4"><div class="empty-state">還沒有照護者帳號</div></td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+
+<section class="panel">
+  <h2>新增照護者帳號</h2>
+  <form method="post" action="/admin/care-centers/{{ center.care_center_id }}/caregivers/new" class="login-form">
+    <label><span>帳號</span><input name="username" required></label>
+    <label><span>密碼</span><input name="password" type="password" required></label>
+    <label><span>姓名</span><input name="display_name" required></label>
+    <button class="primary-btn" type="submit">新增</button>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>指派老人到這個中心</h2>
+  <form method="post" action="/admin/care-centers/{{ center.care_center_id }}/assign" class="login-form">
+    <label><span>選擇使用者</span>
+      <select name="user_id" required>
+        {% for u in all_users %}
+        <option value="{{ u.user_id }}">{{ u.username }}（目前：{{ u.center_name or "未指派" }}）</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button class="primary-btn" type="submit">指派到此中心</button>
+  </form>
+</section>
+
+<section class="panel table-panel">
+  <h2>目前屬於這個中心的老人</h2>
+  <div class="table-wrap"><table>
+  <thead><tr><th>使用者</th><th class="right">操作</th></tr></thead>
+  <tbody>
+  {% for u in all_users if u.care_center_id == center.care_center_id %}
+  <tr>
+    <td>{{ u.username }}</td>
+    <td class="right">
+      <form method="post" action="/admin/care-centers/{{ center.care_center_id }}/unassign" style="display:inline">
+        <input type="hidden" name="user_id" value="{{ u.user_id }}">
+        <button class="mini-btn" type="submit">移出中心</button>
+      </form>
+    </td>
+  </tr>
+  {% else %}<tr><td colspan="2"><div class="empty-state">目前沒有老人屬於這個中心</div></td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+{% endblock %}

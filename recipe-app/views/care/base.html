@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}照護中心後台{% endblock %}｜樂活人生50+</title>
+  <link rel="stylesheet" href="/static/care/care.css">
+</head>
+<body>
+<a class="skip" href="#content">跳至主要內容</a>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">護</div>
+      <div><strong>樂活人生50+</strong><small>智慧照護管理平台</small></div>
+    </div>
+
+    <nav class="nav-list">
+      <a class="nav-item {% if page == 'dashboard' %}active{% endif %}" href="/care"><span class="nav-icon">⌂</span>中心總覽</a>
+      <a class="nav-item {% if page == 'residents' %}active{% endif %}" href="/care/residents"><span class="nav-icon">♙</span>長者名單</a>
+    </nav>
+    <div class="sidebar-note">目前照護中心<strong>{{ caregiver.center_name }}</strong>僅顯示所屬中心資料</div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div><div class="eyebrow">照護工作台</div><h1>{% block page_title %}照護中心後台{% endblock %}</h1><p>{% block page_subtitle %}{% endblock %}</p></div>
+      <div class="topbar-actions">
+        {% if caregiver %}
+        <form method="post" action="/care/logout" class="logout-form">
+          <span class="admin-user">{{ caregiver.display_name }}</span>
+          <button class="ghost-btn" type="submit">登出</button>
+        </form>
+        {% endif %}
+      </div>
+    </header>
+    <section class="content" id="content">{% block content %}{% endblock %}</section>
+  </main>
+</div>
+</body>
+</html>
