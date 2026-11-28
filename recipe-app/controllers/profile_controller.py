@@ -10,6 +10,7 @@ API 設計：
     GET  /api/profile/{user_id}                       基本資料 + 唯讀等級經驗
     PUT  /api/profile/{user_id}                        存基本資料
     POST /api/profile/{user_id}/avatar                 上傳頭像（存檔慣例同 upload_controller）
+    PUT  /api/profile/{user_id}/password               改密碼（舊密碼＋新密碼）
     GET  /api/profile/health-conditions/catalog        健康狀況清單（全使用者共用）
     GET  /api/profile/{user_id}/health-conditions      使用者目前勾選的健康狀況
     PUT  /api/profile/{user_id}/health-conditions       覆蓋寫入
@@ -32,7 +33,7 @@ from typing import List, Literal, Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, UploadFile, File, Query
 from pydantic import BaseModel, Field
 
-from models import profile_model
+from models import profile_model, user_model
 from services import auth_service
 from services.exercise_rules import RuleError
 
@@ -74,6 +75,20 @@ OWNER_ONLY = [Depends(require_owner)]
 @router.get("/{user_id}", dependencies=OWNER_ONLY)
 def get_profile(user_id: int):
     return dict(success=True, data=_call(profile_model.get_profile, user_id))
+
+
+class PasswordChangeRequest(BaseModel):
+    old_password: str = Field(max_length=200)
+    new_password: str = Field(max_length=200)
+
+
+@router.put("/{user_id}/password", dependencies=OWNER_ONLY)
+def change_password(user_id: int, req: PasswordChangeRequest, authorization: Optional[str] = Header(None)):
+    """改密碼：要本人登入（token）而且舊密碼對。成功後其他裝置的登入失效，現在這台不用重新登入。"""
+    token = authorization[7:] if authorization and authorization.lower().startswith("bearer ") else authorization
+    return dict(success=True, data=_call(
+        user_model.change_password, user_id, req.old_password, req.new_password,
+        (token or "").strip() or None))
 
 
 class ProfileSaveRequest(BaseModel):

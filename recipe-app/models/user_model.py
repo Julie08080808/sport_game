@@ -43,6 +43,51 @@ def verify_user(username: str, password: str):
         conn.close()
 
 
+PASSWORD_MIN = 4
+PASSWORD_MAX = 64
+
+
+def change_password(user_id: int, old_password: str, new_password: str, keep_token: str = None) -> dict:
+    """
+    改密碼：舊密碼對了才改，新密碼跟註冊一樣用 bcrypt 存。
+    改好後這個帳號在其他裝置的登入全部失效（只留 keep_token，也就是現在這台）。
+    錯誤用 ValueError 丟出，訊息會直接顯示給長輩看。
+    """
+    old_password = old_password or ""
+    new_password = new_password or ""
+    if not (PASSWORD_MIN <= len(new_password) <= PASSWORD_MAX):
+        raise ValueError(f"新密碼要 {PASSWORD_MIN}～{PASSWORD_MAX} 個字")
+    if new_password == old_password:
+        raise ValueError("新密碼跟舊密碼一樣，請換一個")
+
+    conn = get_db_conn()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT password_hash FROM users WHERE user_id = %s FOR UPDATE;", (user_id,))
+            row = cur.fetchone()
+            if not row:
+                raise ValueError("找不到這個帳號")
+
+            stored = row["password_hash"]
+            stored = stored.encode("utf-8") if isinstance(stored, str) else stored
+            if not bcrypt.checkpw(old_password.encode("utf-8"), stored):
+                raise ValueError("舊密碼不對，請再確認一次")
+
+            new_hash = bcrypt.hashpw(new_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+            cur.execute("UPDATE users SET password_hash = %s WHERE user_id = %s;", (new_hash, user_id))
+            cur.execute("""
+                UPDATE user_sessions SET revoked_at = CURRENT_TIMESTAMP
+                WHERE user_id = %s AND revoked_at IS NULL AND token IS DISTINCT FROM %s;
+            """, (user_id, keep_token))
+        conn.commit()
+        return {"user_id": user_id}
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
 def _initialize_user_scenes(cur, user_id: int):
     cur.execute("""
         SELECT scene_id
