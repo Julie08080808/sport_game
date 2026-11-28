@@ -232,6 +232,13 @@ def serve_recipe():
     return FileResponse("views/index.html")
 
 
+# Unity 個人檔案底部「運動分析」用 WebView 開這個路徑（運動分析、飲食建議、健康目標）。
+# 網頁自己用網址 # 後面帶的 token 呼叫 /api/profile/{id}/exercise-summary（token 不會送到伺服器的網址紀錄裡）。
+@app.get("/analytics")
+def serve_analytics():
+    return FileResponse("views/analytics.html")
+
+
 @app.get("/login")
 def serve_login():
     return FileResponse("views/login.html")

@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>健康分析</title>
+<!--
+  健康分析（Unity 個人檔案 → 「下一頁」直接用 WebView 開這頁，取代原本 App 裡的數據分析頁）。
+  三塊：運動分析（今天／本週／本月）、飲食建議、健康目標；最下面固定一條「回到個人資料」（關掉網頁回 App）。
+  Unity 開的網址：/analytics#uid=12&token=...&app=1
+    token 放在 # 後面：不會送到伺服器、不會留在伺服器紀錄；讀到後立刻從網址上清掉。
+  資料（都要本人的登入 token）：
+    GET /api/profile/{uid}/exercise-summary   運動
+    GET /api/profile/{uid}/diet-review/latest 飲食週報（拍食物照片後每週算一次；還沒有時回 404）
+  不用任何外部套件（學校網路連不到外面也能顯示）。
+-->
+<style>
+  :root { --hand:#1D9E75; --hand-bg:#E1F5EE; --hand-ink:#085041; --leg:#D85A30; --leg-bg:#FAECE7; --leg-ink:#712B13;
+          --ink:#2b2b2b; --sub:#6b6b6b; --line:#e4e0d6; --bg:#f6f2ea; --card:#ffffff; --brand:#2F6F4F; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+         font-size:22px; line-height:1.5; -webkit-text-size-adjust:100%; }
+  .wrap { max-width:720px; margin:0 auto; padding:16px 16px 130px; }
+  h1 { font-size:32px; margin:0 0 12px; font-weight:700; }
+  h2.sec { font-size:28px; margin:26px 0 12px; font-weight:700; }
+  /* 最下方固定的導覽列：最左邊「返回個人檔案」，後面三塊跳到各區 */
+  .bottom { position:fixed; left:0; right:0; bottom:0; background:var(--bg); border-top:1px solid var(--line);
+            padding:10px 10px calc(10px + env(safe-area-inset-bottom)); }
+  .bottom nav { display:flex; gap:6px; max-width:720px; margin:0 auto; }
+  .bottom a, .bottom button { flex:1 1 0; min-width:0; display:flex; align-items:center; justify-content:center; text-align:center;
+            min-height:68px; padding:4px 2px; border-radius:16px; font-size:clamp(16px, 4.6vw, 22px); line-height:1.25;
+            text-decoration:none; white-space:nowrap; letter-spacing:0;
+            font-family:inherit; color:var(--brand); background:var(--card); border:2px solid var(--brand); }
+  .bottom a.on { background:#E1F5EE; font-weight:700; }
+  .bottom button.back { background:var(--brand); color:#fff; font-weight:700; white-space:pre; }   /* 只在「返回」後面換行 */
+  .stars { font-size:34px; letter-spacing:2px; color:#E0A21A; }
+  .stars .off { color:#d9d4c7; }
+  .goal { padding:14px 0; border-bottom:1px solid var(--line); }
+  .goal:last-child { border-bottom:0; }
+  .goal .head { display:flex; justify-content:space-between; align-items:center; }
+  .bar { height:16px; background:#ece7dc; border-radius:8px; overflow:hidden; margin-top:8px; }
+  .bar i { display:block; height:100%; background:var(--brand); border-radius:8px; }
+  .tips { margin:10px 0 0; padding-left:1.2em; }
+  .tips li { margin:6px 0; }
+  .note { color:#B45C10; font-size:19px; margin:12px 0 0; }
+  .total { background:#FFFBF2; color:var(--ink); border:2px solid #E8DCC4; border-radius:18px; padding:18px; margin-bottom:14px; }
+  .total .label { margin:0; font-size:22px; color:var(--sub); }
+  .total .num { margin:2px 0 0; font-size:44px; font-weight:700; color:var(--ink); }
+  .total .meta { margin:4px 0 12px; font-size:20px; color:var(--sub); }
+  .total .pills { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .total .pill { border-radius:14px; padding:10px 12px; font-size:20px; }
+  .total .pill.hand { background:var(--hand-bg); color:var(--hand-ink); }
+  .total .pill.leg { background:var(--leg-bg); color:var(--leg-ink); }
+  .total .pill b { display:block; font-size:26px; }
+  .tabs { display:flex; gap:8px; margin-bottom:16px; }
+  .tab { flex:1; border:0; padding:14px 0; font-size:24px; border-radius:14px; background:#e8e2d6; color:var(--ink); }
+  .tab.on { background:var(--brand); color:#fff; font-weight:700; }
+  .card { background:var(--card); border-radius:18px; padding:18px; margin-bottom:14px; }
+  .row { display:flex; gap:14px; align-items:center; }
+  .big { font-size:28px; font-weight:700; margin:0; }
+  .sub { color:var(--sub); margin:4px 0 0; }
+  .parts { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+  .part { border-radius:18px; padding:16px; }
+  .part.hand { background:var(--hand-bg); color:var(--hand-ink); }
+  .part.leg { background:var(--leg-bg); color:var(--leg-ink); }
+  .part .name { font-weight:700; margin:0; }
+  .part .num { font-size:36px; font-weight:700; margin:4px 0 0; }
+  .chart { display:flex; align-items:flex-end; gap:8px; height:220px; border-bottom:2px solid var(--line); padding-top:30px; }
+  .col { flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:stretch; position:relative; height:100%; }
+  .col .val { position:absolute; left:-10px; right:-10px; text-align:center; font-size:18px; color:var(--sub); }
+  .seg-hand { background:var(--hand); border-radius:0 0 6px 6px; }
+  .seg-leg { background:var(--leg); border-radius:6px 6px 0 0; }
+  .col.future { opacity:.35; }
+  .labels { display:flex; gap:8px; margin-top:6px; }
+  .labels div { flex:1; text-align:center; color:var(--sub); font-size:20px; }
+  .labels div.today { color:var(--brand); font-weight:700; }
+  .labels.two div { white-space:pre-line; font-size:17px; line-height:1.3; }
+  .legend { display:flex; gap:16px; margin-top:10px; color:var(--sub); font-size:19px; }
+  .dot { display:inline-block; width:14px; height:14px; border-radius:4px; margin-right:6px; vertical-align:-1px; }
+  .advice { border-radius:18px; padding:18px; margin-bottom:14px; }
+  .advice.good { background:#EAF3DE; color:#27500A; }
+  .advice.tip { background:#FAEEDA; color:#633806; }
+  .advice.start { background:#E6F1FB; color:#0C447C; }
+  .advice h2 { font-size:24px; margin:0 0 6px; }
+  .advice p { margin:0; color:var(--ink); }
+  .list div { display:flex; justify-content:space-between; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); }
+  .list div:last-child { border-bottom:0; }
+  .muted { color:var(--sub); }
+  .msg { text-align:center; padding:40px 10px; color:var(--sub); }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>健康分析</h1>
+
+  <h2 class="sec" id="sec-exercise">運動分析</h2>
+  <div class="total hidden" id="total">
+    <p class="label">累計運動</p>
+    <p class="num" id="totalSessions">0 次</p>
+    <p class="meta" id="totalMeta"></p>
+    <div class="pills">
+      <div class="pill hand">手部<b id="totalHand">0 下</b><span id="totalHandMin">0 分鐘</span></div>
+      <div class="pill leg">腳部<b id="totalLeg">0 下</b><span id="totalLegMin">0 分鐘</span></div>
+    </div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-view="today" type="button">今天</button>
+    <button class="tab" data-view="week" type="button">本週</button>
+    <button class="tab" data-view="month" type="button">本月</button>
+  </div>
+
+  <div id="msg" class="msg">載入中…</div>
+
+  <div id="content" class="hidden">
+    <div id="advice" class="advice"><h2 id="adviceTitle"></h2><p id="adviceText"></p></div>
+
+    <section id="view-today">
+      <div class="card row">
+        <svg width="120" height="120" viewBox="0 0 120 120" aria-hidden="true">
+          <circle cx="60" cy="60" r="50" fill="none" stroke="#e4e0d6" stroke-width="14"/>
+          <circle id="ring" cx="60" cy="60" r="50" fill="none" stroke="#1D9E75" stroke-width="14" stroke-linecap="round"
+                  stroke-dasharray="0 314" transform="rotate(-90 60 60)"/>
+          <text id="ringNum" x="60" y="58" text-anchor="middle" font-size="26" font-weight="700" fill="#2b2b2b">0 分</text>
+          <text id="ringGoal" x="60" y="84" text-anchor="middle" font-size="16" fill="#6b6b6b">目標 5 分</text>
+        </svg>
+        <div>
+          <p class="big" id="todayLine"></p>
+          <p class="sub" id="streakLine"></p>
+          <p class="sub" id="sessionsLine"></p>
+        </div>
+      </div>
+      <div class="parts">
+        <div class="part hand"><p class="name">手部運動</p><p class="num" id="tHandCount">0 下</p><p id="tHandMin">0 分鐘</p></div>
+        <div class="part leg"><p class="name">腳部運動</p><p class="num" id="tLegCount">0 下</p><p id="tLegMin">0 分鐘</p></div>
+      </div>
+      <p class="muted" style="text-align:center;margin:6px 0 0;">每一次做了什麼任務，可以到地圖的「日曆」查看。</p>
+    </section>
+
+    <section id="view-week" class="hidden">
+      <div class="parts">
+        <div class="part hand"><p class="name">本週手部運動</p><p class="num" id="wHandCount">0 下</p><p id="wHandMin">0 分鐘</p></div>
+        <div class="part leg"><p class="name">本週腳部運動</p><p class="num" id="wLegCount">0 下</p><p id="wLegMin">0 分鐘</p></div>
+      </div>
+      <div class="card">
+        <p class="sub" style="margin:0 0 6px;">每天運動幾分鐘</p>
+        <div class="chart" id="weekChart"></div>
+        <div class="labels" id="weekLabels"></div>
+        <div class="legend"><span><i class="dot" style="background:var(--hand)"></i>手部</span><span><i class="dot" style="background:var(--leg)"></i>腳部</span></div>
+      </div>
+      <div class="card">
+        <p class="sub" style="margin:0 0 4px;">本週做最多的運動</p>
+        <div class="list" id="topList"></div>
+      </div>
+    </section>
+
+    <section id="view-month" class="hidden">
+      <div class="parts">
+        <div class="part hand"><p class="name" id="mHandName">手部運動</p><p class="num" id="mHandCount">0 下</p><p id="mHandMin">0 分鐘</p></div>
+        <div class="part leg"><p class="name" id="mLegName">腳部運動</p><p class="num" id="mLegCount">0 下</p><p id="mLegMin">0 分鐘</p></div>
+      </div>
+      <div class="card">
+        <p class="big" id="monthCompare" style="font-size:24px;"></p>
+        <p class="sub" id="monthDays"></p>
+      </div>
+      <div class="card">
+        <p class="sub" style="margin:0 0 6px;" id="monthChartTitle">這個月每週運動幾分鐘</p>
+        <div class="chart" id="monthChart"></div>
+        <div class="labels two" id="monthLabels"></div>
+        <div class="legend"><span><i class="dot" style="background:var(--hand)"></i>手部</span><span><i class="dot" style="background:var(--leg)"></i>腳部</span></div>
+      </div>
+    </section>
+  </div>
+
+  <h2 class="sec" id="sec-diet">飲食建議</h2>
+  <div class="card" id="diet">
+    <p class="muted" id="dietWeek">載入中…</p>
+    <p id="dietObservation" style="margin:8px 0 0;"></p>
+    <ul class="tips" id="dietTips"></ul>
+    <p class="note">僅供參考，請依照醫師或營養師的建議調整飲食。</p>
+  </div>
+
+  <h2 class="sec" id="sec-goals">健康目標</h2>
+  <div class="card" id="goals">
+    <p class="muted" id="goalsWeek">載入中…</p>
+    <div id="goalList"></div>
+  </div>
+</div>
+
+<div class="bottom" id="bottomBar">
+  <nav>
+    <button type="button" class="back hidden" id="backToProfile">← 返回
+個人檔案</button>
+    <a href="#sec-exercise" data-sec="sec-exercise" class="on">運動分析</a>
+    <a href="#sec-diet" data-sec="sec-diet">飲食建議</a>
+    <a href="#sec-goals" data-sec="sec-goals">健康目標</a>
+  </nav>
+</div>
+
+<script>
+(function () {
+  // ── 從網址 # 後面拿 uid、token，拿到就清掉 ──
+  var hash = new URLSearchParams(location.hash.replace(/^#/, ''));
+  var uid = hash.get('uid');
+  var token = hash.get('token');
+  var inApp = hash.get('app') === '1';
+  if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+
+  // 最下面最左邊的「返回個人檔案」：在 App 裡才出現，按了關掉網頁回到 App 的個人資料頁
+  if (inApp) {
+    var backBtn = document.getElementById('backToProfile');
+    backBtn.classList.remove('hidden');
+    backBtn.addEventListener('click', function () { location.href = 'uniwebview://close'; });
+  }
+
+  // 下方三塊：點了捲到那一區（不改網址）；捲動時標出現在看的是哪一區
+  var navLinks = document.querySelectorAll('.bottom a[data-sec]');
+  navLinks.forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      var target = document.getElementById(a.dataset.sec);
+      if (target) { window.scrollTo(0, target.getBoundingClientRect().top + window.scrollY - 12); markCurrent(); }
+    });
+  });
+  function markCurrent() {
+    var current = 'sec-exercise';
+    var nearBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 4;
+    navLinks.forEach(function (a) {
+      var sec = document.getElementById(a.dataset.sec);
+      if (sec && sec.getBoundingClientRect().top < window.innerHeight * 0.35) current = a.dataset.sec;
+    });
+    if (nearBottom) current = 'sec-goals';
+    navLinks.forEach(function (a) { a.classList.toggle('on', a.dataset.sec === current); });
+  }
+  window.addEventListener('scroll', markCurrent, { passive: true });
+
+  function $(id) { return document.getElementById(id); }
+  function num(n) { return Math.round(n * 10) / 10; }
+  function showMsg(text) { $('msg').textContent = text; $('msg').classList.remove('hidden'); $('content').classList.add('hidden'); }
+
+  // ── 分頁 ──
+  var tabs = document.querySelectorAll('.tab');
+  tabs.forEach(function (t) {
+    t.addEventListener('click', function () {
+      tabs.forEach(function (x) { x.classList.toggle('on', x === t); });
+      ['today', 'week', 'month'].forEach(function (v) {
+        $('view-' + v).classList.toggle('hidden', v !== t.dataset.view);
+      });
+    });
+  });
+
+  // ── 疊起來的長條（手部在下、腳部在上）──
+  function drawBars(chartId, labelsId, items, labelOf, isToday, isFuture) {
+    var chart = $(chartId), labels = $(labelsId);
+    chart.textContent = ''; labels.textContent = '';
+    var max = 0;
+    items.forEach(function (it) { max = Math.max(max, it.hand.minutes + it.leg.minutes); });
+    if (max <= 0) max = 1;
+    items.forEach(function (it) {
+      var total = it.hand.minutes + it.leg.minutes;
+      var col = document.createElement('div');
+      col.className = 'col' + (isFuture && isFuture(it) ? ' future' : '');
+      var full = 190; // 長條最高的像素（留空間給上面的數字）
+      var hLeg = it.leg.minutes / max * full, hHand = it.hand.minutes / max * full;
+      if (total > 0) {
+        var val = document.createElement('div');
+        val.className = 'val';
+        val.style.bottom = (hLeg + hHand + 4) + 'px';
+        val.textContent = num(total) + ' 分';
+        col.appendChild(val);
+      }
+      var leg = document.createElement('div'); leg.className = 'seg-leg'; leg.style.height = hLeg + 'px';
+      var hand = document.createElement('div'); hand.className = 'seg-hand'; hand.style.height = hHand + 'px';
+      if (hLeg === 0) hand.style.borderRadius = '6px';
+      if (hHand === 0) leg.style.borderRadius = '6px';
+      col.appendChild(leg); col.appendChild(hand);
+      chart.appendChild(col);
+      var lab = document.createElement('div');
+      lab.textContent = labelOf(it);
+      if (isToday && isToday(it)) lab.className = 'today';
+      labels.appendChild(lab);
+    });
+  }
+
+  function renderTotal(t) {
+    if (!t) return;
+    $('totalSessions').textContent = '共 ' + t.sessions + ' 次';
+    if (t.sessions === 0) {
+      $('totalMeta').textContent = '還沒有運動紀錄，第一次運動完就會開始累計。';
+    } else {
+      var since = t.since ? new Date(t.since + 'T00:00:00') : null;
+      $('totalMeta').textContent = '完成 ' + t.completed + ' 次・運動過 ' + t.active_days + ' 天' +
+        (since ? '・從 ' + (since.getMonth() + 1) + '/' + since.getDate() + ' 開始' : '');
+    }
+    $('totalHand').textContent = t.hand.count + ' 下';   $('totalHandMin').textContent = num(t.hand.minutes) + ' 分鐘';
+    $('totalLeg').textContent = t.leg.count + ' 下';     $('totalLegMin').textContent = num(t.leg.minutes) + ' 分鐘';
+    $('total').classList.remove('hidden');
+  }
+
+  function render(d) {
+    renderTotal(d.total);
+    // 建議
+    var adv = $('advice');
+    adv.className = 'advice ' + (d.advice.level || 'tip');
+    $('adviceTitle').textContent = d.advice.title;
+    $('adviceText').textContent = d.advice.text;
+
+    // 今天
+    var t = d.today, goal = t.goal_minutes || 5;
+    var ratio = Math.min(1, t.minutes / goal);
+    $('ring').setAttribute('stroke-dasharray', (314 * ratio) + ' 314');
+    $('ring').style.opacity = ratio > 0 ? '1' : '0';   // 0 分時不要留一個圓點
+    $('ringNum').textContent = num(t.minutes) + ' 分';
+    $('ringGoal').textContent = '目標 ' + goal + ' 分';
+    var left = num(goal - t.minutes);
+    $('todayLine').textContent = t.minutes >= goal ? '今天的目標達成了！' :
+                                 t.sessions === 0 ? '今天還沒運動' : '再動 ' + left + ' 分鐘就達標';
+    $('streakLine').textContent = d.streak_days > 0 ? '已經連續 ' + d.streak_days + ' 天有運動' : '今天動一動，開始累積天數';
+    $('sessionsLine').textContent = t.sessions > 0 ? '今天做了 ' + t.sessions + ' 次運動，完成 ' + t.completed + ' 次' :
+                                                     '去找 NPC 接一個任務吧！';
+    $('tHandCount').textContent = t.hand.count + ' 下'; $('tHandMin').textContent = num(t.hand.minutes) + ' 分鐘';
+    $('tLegCount').textContent = t.leg.count + ' 下';   $('tLegMin').textContent = num(t.leg.minutes) + ' 分鐘';
+
+    // 本週
+    var w = d.week;
+    $('wHandCount').textContent = w.hand.count + ' 下'; $('wHandMin').textContent = num(w.hand.minutes) + ' 分鐘';
+    $('wLegCount').textContent = w.leg.count + ' 下';   $('wLegMin').textContent = num(w.leg.minutes) + ' 分鐘';
+    drawBars('weekChart', 'weekLabels', w.days,
+             function (x) { return x.label; }, function (x) { return x.is_today; }, function (x) { return x.future; });
+    var list = $('topList'); list.textContent = '';
+    if (!d.top_exercises.length) {
+      var empty = document.createElement('div'); empty.className = 'muted'; empty.textContent = '本週還沒有運動';
+      list.appendChild(empty);
+    }
+    d.top_exercises.forEach(function (e) {
+      var row = document.createElement('div');
+      var a = document.createElement('span'); a.textContent = e.name + '（' + e.part + '）';
+      var b = document.createElement('span'); b.className = 'muted'; b.textContent = e.times + ' 次・' + e.count + ' 下・' + num(e.minutes) + ' 分';
+      row.appendChild(a); row.appendChild(b); list.appendChild(row);
+    });
+
+    // 本月
+    var m = d.month;
+    $('mHandCount').textContent = m.hand.count + ' 下'; $('mHandMin').textContent = num(m.hand.minutes) + ' 分鐘';
+    $('mLegCount').textContent = m.leg.count + ' 下';   $('mLegMin').textContent = num(m.leg.minutes) + ' 分鐘';
+    var thisMin = m.hand.minutes + m.leg.minutes;
+    var lastMin = m.last_month.hand.minutes + m.last_month.leg.minutes;
+    var diff = num(thisMin - lastMin);
+    $('monthCompare').textContent =
+      lastMin === 0 && thisMin === 0 ? '這個月還沒有運動，一起動起來吧！' :
+      lastMin === 0 ? '這個月運動了 ' + num(thisMin) + ' 分鐘' :
+      diff > 0 ? '比' + m.last_month.label + '多動了 ' + diff + ' 分鐘，很棒！' :
+      diff < 0 ? '比' + m.last_month.label + '少 ' + (-diff) + ' 分鐘，月底前一起追上' :
+                 '跟' + m.last_month.label + '一樣多，繼續保持';
+    $('monthDays').textContent = '這個月有 ' + m.active_days + ' 天有運動' +
+      (lastMin > 0 ? '（' + m.last_month.label + '共 ' + num(lastMin) + ' 分鐘）' : '');
+    $('monthChartTitle').textContent = m.label + '每週運動幾分鐘';
+    drawBars('monthChart', 'monthLabels', m.weeks,
+             function (x) { return x.label + '\n' + x.range; },
+             function (x) { return x.is_current; }, function (x) { return x.future; });
+
+    $('msg').classList.add('hidden');
+    $('content').classList.remove('hidden');
+  }
+
+  if (!uid || !token) {
+    showMsg('請從 App 的「個人檔案」按「下一頁」打開這一頁。');
+    $('dietWeek').textContent = '';
+    $('goalsWeek').textContent = '';
+    return;
+  }
+
+  // ── 飲食建議、健康目標：最新一週的飲食週報（拍食物照片後，每週算一次）──
+  var GOALS = [
+    { key: 'vegetable_score', name: '蔬菜攝取', meaning: '每餐都有青菜，星星越多越好' },
+    { key: 'fried_score',     name: '少吃油炸', meaning: '炸的東西吃得越少，星星越多' },
+    { key: 'variety_score',   name: '飲食多樣性', meaning: '每天吃不同種類的食物' }
+  ];
+
+  function stars(n) {
+    var span = document.createElement('span');
+    span.className = 'stars';
+    for (var i = 1; i <= 5; i++) {
+      var s = document.createElement('span');
+      s.textContent = '★';
+      if (i > n) s.className = 'off';
+      span.appendChild(s);
+    }
+    return span;
+  }
+
+  function weekText(monday) {
+    var d = new Date(monday + 'T00:00:00');
+    var end = new Date(d.getTime() + 6 * 86400000);
+    return (d.getMonth() + 1) + '/' + d.getDate() + '–' + (end.getMonth() + 1) + '/' + end.getDate() + ' 這一週';
+  }
+
+  function renderDiet(r) {
+    $('dietWeek').textContent = weekText(r.week_monday) + '的飲食';
+    $('dietObservation').textContent = r.ai_observation || '';
+    var tips = $('dietTips'); tips.textContent = '';
+    var list = [];
+    // 3 顆星以下就給一則具體的做法；三項都 4 顆星以上才稱讚
+    if (r.vegetable_score <= 3) list.push('青菜可以再多一點，每餐多一份青菜，可以先從燙青菜開始。');
+    if (r.fried_score <= 3) list.push('炸的東西可以再少一點，換成蒸、煮、滷的做法。');
+    if (r.variety_score <= 3) list.push('食物種類可以再多一些，每天試著換一種水果或蔬菜。');
+    if (!list.length) list.push('這週吃得很均衡，繼續保持！');
+    list.forEach(function (t) { var li = document.createElement('li'); li.textContent = t; tips.appendChild(li); });
+
+    $('goalsWeek').textContent = weekText(r.week_monday) + '（滿分 5 顆星）';
+    var box = $('goalList'); box.textContent = '';
+    GOALS.forEach(function (g) {
+      var score = Math.max(0, Math.min(5, r[g.key] || 0));
+      var row = document.createElement('div'); row.className = 'goal';
+      var head = document.createElement('div'); head.className = 'head';
+      var name = document.createElement('span'); name.style.fontWeight = '700'; name.textContent = g.name;
+      head.appendChild(name); head.appendChild(stars(score));
+      var bar = document.createElement('div'); bar.className = 'bar';
+      var fill = document.createElement('i'); fill.style.width = (score * 20) + '%'; bar.appendChild(fill);
+      var meaning = document.createElement('p'); meaning.className = 'muted'; meaning.style.margin = '6px 0 0'; meaning.textContent = g.meaning;
+      row.appendChild(head); row.appendChild(bar); row.appendChild(meaning);
+      box.appendChild(row);
+    });
+  }
+
+  function dietEmpty(text) {
+    $('dietWeek').textContent = text;
+    $('dietObservation').textContent = '';
+    $('dietTips').textContent = '';
+    $('goalsWeek').textContent = text;
+    $('goalList').textContent = '';
+  }
+
+  fetch('/api/profile/' + encodeURIComponent(uid) + '/diet-review/latest', {
+    headers: { 'Authorization': 'Bearer ' + token }
+  }).then(function (res) {
+    if (res.status === 404) return null;   // 還沒有任何一週的飲食週報
+    if (res.status === 401) throw new Error('登入已過期，請回到 App 重新登入。');
+    if (!res.ok) throw new Error('暫時拿不到飲食資料，請稍後再試。');
+    return res.json();
+  }).then(function (body) {
+    if (!body || !body.data) dietEmpty('還沒有飲食紀錄。拍幾餐食物照片，每週就會幫你整理飲食建議和健康目標。');
+    else renderDiet(body.data);
+  }).catch(function (e) {
+    dietEmpty(e.message || '暫時拿不到飲食資料，請稍後再試。');
+  });
+
+  fetch('/api/profile/' + encodeURIComponent(uid) + '/exercise-summary', {
+    headers: { 'Authorization': 'Bearer ' + token }
+  }).then(function (res) {
+    if (res.status === 401) throw new Error('登入已過期，請回到 App 重新登入。');
+    if (!res.ok) throw new Error('暫時拿不到運動資料，請稍後再試。');
+    return res.json();
+  }).then(function (body) {
+    render(body.data);
+  }).catch(function (e) {
+    showMsg(e.message || '暫時拿不到運動資料，請稍後再試。');
+  });
+})();
+</script>
+</body>
+</html>

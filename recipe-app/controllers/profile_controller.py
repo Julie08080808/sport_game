@@ -23,6 +23,7 @@ API 設計：
     GET  /api/profile/{user_id}/settings                個人設定
     PUT  /api/profile/{user_id}/settings                存個人設定
     GET  /api/profile/{user_id}/exercise-sessions       運動紀錄（數據分析頁用，重用 exercise_logs）
+    GET  /api/profile/{user_id}/exercise-summary        運動分析（網頁 /analytics 用：今天、本週、本月、累計、建議）
 """
 import logging
 import os
@@ -33,7 +34,7 @@ from typing import List, Literal, Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, UploadFile, File, Query
 from pydantic import BaseModel, Field
 
-from models import profile_model, user_model
+from models import exercise_summary_model, profile_model, user_model
 from services import auth_service
 from services.exercise_rules import RuleError
 
@@ -235,6 +236,11 @@ def save_settings(user_id: int, req: SettingsSaveRequest):
 
 
 # ───────────── 運動紀錄 ─────────────
+
+@router.get("/{user_id}/exercise-summary", dependencies=OWNER_ONLY)
+def exercise_summary(user_id: int):
+    return dict(success=True, data=_call(exercise_summary_model.get_exercise_summary, user_id))
+
 
 @router.get("/{user_id}/exercise-sessions", dependencies=OWNER_ONLY)
 def exercise_sessions(user_id: int, date_from: str = Query(...), date_to: str = Query(...)):
